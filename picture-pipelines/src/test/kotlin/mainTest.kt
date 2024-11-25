@@ -1,5 +1,3 @@
-package ru.nsu.fit.mmp.`24221`
-
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.should

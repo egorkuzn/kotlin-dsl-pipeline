@@ -1,1 +1,3 @@
-rootProject.name = "kotlin-dsl-pipeline-project"
+rootProject.name = "pipelines-framework"
+include("core")
+include("picture-pipelines")
