@@ -167,5 +167,7 @@ node(
 | --------- | ----------------------------- |
 | `value`   | Значение передаваемое в канал |
 
+## Реализация
 
+[SharedFlow](https://www.kodeco.com/22030171-reactive-streams-on-kotlin-sharedflow-and-stateflow)
 
