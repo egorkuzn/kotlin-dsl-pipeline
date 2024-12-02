@@ -1,82 +1,55 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.runBlocking
+import java.util.concurrent.Executors
+
 fun main() {
-    println("Hello World!")
-}
 
-/*
-class Pipe<T>
-class Node(name: String);
-class Workflow(val nodes: List<Node>)
+    val executor = Executors.newFixedThreadPool(4)
 
-class Producer<T>(){
-		fun onListener(action: ()->Unit){
+    val workflow = Workflow(
+        dispatcher = executor.asCoroutineDispatcher(),
+    ) {
 
-		}
-}
-class Consumer<T>(){
-		fun commit(value: T){
+        val ip = Pipe<Int>()
+        val an = Pipe<Float>()
+        val gk = Pipe<Double>()
 
-		}
-}
+        sharedWorkflow {
+            mySharedFlow(input = ip, output = ip, 11)
+        }
 
-class WorkflowBuilder {
-		private val nodes = mutableListOf<Node>()
+        node(
+            name = "Первая нода",
+            input = Pair(ip, an),
+            output = Pair(ip, gk)
+        ) { a, b, c, d ->
+            // Define the action logic here
+            println("Executing action for node 'Первая нода'")
+            // e.g., Use producers and consumers as needed
+        }
+    }
 
-		fun <T, Q> node(name: String, input: Pipe<T>, output: Pipe<Q>) {
-				nodes.add(Node(name))
-		}
+    workflow.start()
 
-		fun <T, Q, S> node(name: String, input: Pair<Pipe<T>, Pipe<Q>>, output: Pipe<S>) {
-				nodes.add(Node(name))
-		}
-
-		fun <T, Q, S, P> node(
-			name: String,
-			input: Pair<Pipe<T>, Pipe<Q>>,
-			output: Pair<Pipe<S>, Pipe<P>>,
-			action: (Producer<T>, Producer<Q>, Consumer<S>, Consumer<P>) -> Unit
-		) {
-				nodes.add(Node(name))
-		}
-
-		fun build(): Workflow {
-				return Workflow(nodes)
-		}
-}
-
-fun Workflow(init: WorkflowBuilder.() -> Unit): Workflow {
-		return WorkflowBuilder().apply(init).build()
+    runBlocking {
+        workflow.stop()
+    }
 }
 
 
- inline fun <T,Q,W> sharedWorkflow (input: Pipe<T>, output: Pipe<Q>, firstParam : W): Workflow {}
+fun mySharedFlow(input: Pipe<Int>, output: Pipe<Int>, firstParam: Int): SharedWorkflow =
+    SharedWorkflow {
 
+        node(
+            name = "Первая нода",
+            input = input,
+            output = output
+        ) { a, b ->
+            // Define the action logic here
+            println("Executing action for node 'Первая нода'")
+            // e.g., Use producers and consumers as needed
+        }
+    }
 
-
-val sharedFlow = sharedWorkflow(firstParam:Int, secondParam){
-		input: Pair<Int, Int>, output: Pair<Int, Int> ->
-
-
-}
-
-val workflow = Workflow {
-
-		val ip = Pipe<Int>()
-		val an = Pipe<Float>()
-		val gk = Pipe<Double>()
-
-		node(
-				name = "Первая нода",
-				input = Pair(ip, an),
-				output = Pair(ip, gk)
-		) { a: Producer<Int>, b: Producer<Float>, c: Consumer<Int>, d: Consumer<Double> ->
-				// Define the action logic here
-			(a+b).onListener {
-				Pair()
-				}
-				println("Executing action for node 'Первая нода'")
-				// e.g., Use producers and consumers as needed
-		}
-}
-*/
