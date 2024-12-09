@@ -3,7 +3,13 @@ package ru.nsu.fit.mmp.pipelinesframework
 import kotlinx.coroutines.*
 
 class Workflow(
-    private val nodes: List<Node>, dispatcher: CoroutineDispatcher
+
+    private val nodes: List<Node>,
+    name: String,
+    dispatcher: CoroutineDispatcher,
+    countStackContext: Int,
+    enableSecurityDeadLock : Boolean,
+    enableWarringCyclePipe: Boolean
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
     private val jobs = mutableListOf<Job>()
@@ -65,8 +71,14 @@ class WorkflowBuilder {
         sharedWorkflow.invoke().getNodes().forEach(nodes::add)
     }
 
-    fun build(dispatcher: CoroutineDispatcher): Workflow {
-        return Workflow(nodes, dispatcher)
+    fun build(
+        name: String,
+        dispatcher: CoroutineDispatcher,
+        countStackContext: Int,
+        enableSecurityDeadLock : Boolean,
+        enableWarringCyclePipe: Boolean,
+    ): Workflow {
+        return Workflow(nodes, name, dispatcher, countStackContext, enableSecurityDeadLock, enableWarringCyclePipe)
     }
 
     fun buildSharedWorkflow(): SharedWorkflow {
@@ -75,9 +87,13 @@ class WorkflowBuilder {
 }
 
 fun Workflow(
+    name: String,
+    countStackContext: Int = 10,
+    enableSecurityDeadLock : Boolean = false,
+    enableWarringCyclePipe: Boolean = false,
     dispatcher: CoroutineDispatcher = Dispatchers.Default, init: WorkflowBuilder.() -> Unit
 ): Workflow {
-    return WorkflowBuilder().apply(init).build(dispatcher)
+    return WorkflowBuilder().apply(init).build(name,dispatcher, countStackContext, enableSecurityDeadLock, enableWarringCyclePipe)
 }
 
 fun SharedWorkflow(init: WorkflowBuilder.() -> Unit): SharedWorkflow {

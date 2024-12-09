@@ -11,10 +11,11 @@ fun main() {
     val executor = Executors.newFixedThreadPool(4)
 
     val workflow = Workflow(
+        "Сумматор",
         dispatcher = executor.asCoroutineDispatcher(),
     ) {
 
-        val ip = Pipe<Int>()
+        val randomPipe = Pipe<Int>()
         val an = Pipe<Float>()
         val gk = Pipe<Double>()
 
@@ -23,8 +24,7 @@ fun main() {
 //        }
 
         initial(
-            name = "Random",
-            output = ip
+            name = "Генератор случайной последовательности", output = randomPipe
         ) { producer ->
             while (true) {
                 delay(1000)
@@ -33,8 +33,7 @@ fun main() {
         }
 
         finish(
-            name = "Print",
-            input = ip
+            name = "Print", input = randomPipe
         ) { consumer ->
             consumer.onListener { value ->
                 println(value)
@@ -52,17 +51,14 @@ fun main() {
 }
 
 
-fun mySharedFlow(input: Pipe<Int>, output: Pipe<Int>, firstParam: Int): SharedWorkflow =
-    SharedWorkflow {
+fun mySharedFlow(input: Pipe<Int>, output: Pipe<Int>, firstParam: Int): SharedWorkflow = SharedWorkflow {
 
-        node(
-            name = "Первая нода",
-            input = input,
-            output = output
-        ) { a, b ->
-            // Define the action logic here
-            println("Executing action for node 'Первая нода'")
-            // e.g., Use producers and consumers as needed
-        }
+    node(
+        name = "Первая нода", input = input, output = output
+    ) { a, b ->
+        // Define the action logic here
+        println("Executing action for node 'Первая нода'")
+        // e.g., Use producers and consumers as needed
     }
+}
 
