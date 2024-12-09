@@ -32,6 +32,22 @@ class WorkflowBuilder {
         })
     }
 
+    fun <Q> initial(
+        name: String, output: Pipe<Q>, action: suspend (Pipe<Q>.Producer) -> Unit
+    ) {
+        nodes.add(Node(name, listOf(), listOf(output)) {
+            action.invoke(output.Producer())
+        })
+    }
+
+    fun <T> finish(
+        name: String, input: Pipe<T>,action: suspend (Pipe<T>.Consumer) -> Unit
+    ) {
+        nodes.add(Node(name, listOf(input), listOf()) {
+            action.invoke(input.Consumer())
+        })
+    }
+
     fun <T, Q, S, P> node(
         name: String,
         input: Pair<Pipe<T>, Pipe<Q>>,
