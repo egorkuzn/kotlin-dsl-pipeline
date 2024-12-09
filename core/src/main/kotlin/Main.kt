@@ -4,7 +4,6 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
-import kotlin.random.Random
 
 fun main() {
 
@@ -15,32 +14,49 @@ fun main() {
         dispatcher = executor.asCoroutineDispatcher(),
     ) {
 
-        val randomPipe = Pipe<Int>()
-        val an = Pipe<Float>()
-        val gk = Pipe<Double>()
+        val randomPipe1 = pipe<Int>()
+        val outputPipe1 = pipe<Double>()
+        val randomPipe2 = pipe<Int>()
+        val outputPipe2 = pipe<Double>()
 
-//        sharedWorkflow {
-//            mySharedFlow(input = ip, output = ip, 11)
-//        }
+        sharedWorkflow {
+            sequenceGenerator(randomPipe1)
+        }
 
-        initial(
-            name = "Генератор случайной последовательности", output = randomPipe
-        ) { producer ->
-            while (true) {
-                delay(1000)
-                producer.commit(Random.nextInt())
+        sharedWorkflow {
+            sequenceGenerator(randomPipe2)
+        }
+
+        node(
+            "Лишняя нода",
+            input = Pair(randomPipe1, randomPipe2),
+            output = Pair(outputPipe1, outputPipe2)
+        ) { consumer, consumer2, producer, producer2 ->
+            (consumer + consumer2).onListener { value1, value2 ->
+                (producer + producer2).commit(value1.toDouble(), value2.toDouble())
             }
+
+            println("hello")
         }
 
         finish(
-            name = "Print", input = randomPipe
+            "Лишняя нода 2",
+            input = outputPipe1,
+        ) { consumer ->
+            consumer.onListener{
+                value ->
+                println("Лишняя нода 2 $value")
+            }
+        }
+
+
+        finish(
+            name = "Print", input = randomPipe1
         ) { consumer ->
             consumer.onListener { value ->
                 println(value)
             }
         }
-
-
     }
 
     workflow.start()
@@ -51,14 +67,16 @@ fun main() {
 }
 
 
-fun mySharedFlow(input: Pipe<Int>, output: Pipe<Int>, firstParam: Int): SharedWorkflow = SharedWorkflow {
+fun sequenceGenerator(output: Pipe.Single<Int>): SharedWorkflow = SharedWorkflow {
 
-    node(
-        name = "Первая нода", input = input, output = output
-    ) { a, b ->
-        // Define the action logic here
-        println("Executing action for node 'Первая нода'")
-        // e.g., Use producers and consumers as needed
+    initial(
+        name = "Генератор последовательности", output = output
+    ) { producer ->
+        var count = 0
+        while (true) {
+            delay(1000)
+            producer.commit(count++)
+        }
     }
 }
 

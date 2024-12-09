@@ -8,14 +8,14 @@ class Workflow(
     name: String,
     dispatcher: CoroutineDispatcher,
     countStackContext: Int,
-    enableSecurityDeadLock : Boolean,
+    enableSecurityDeadLock: Boolean,
     enableWarringCyclePipe: Boolean
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
     private val jobs = mutableListOf<Job>()
 
     fun start() {
-        nodes.forEach { node -> jobs.add(coroutineScope.launch { node.actions.invoke() }) }
+        nodes.forEach { node -> jobs.add(coroutineScope.launch { node.actions.invoke(coroutineScope) }) }
     }
 
     suspend fun stop() {
@@ -31,39 +31,56 @@ class WorkflowBuilder {
     private val nodes = mutableListOf<Node>()
 
     fun <T, Q> node(
-        name: String, input: Pipe<T>, output: Pipe<Q>, action: suspend (Pipe<T>.Consumer, Pipe<Q>.Producer) -> Unit
+        name: String,
+        input: Pipe.Single<T>,
+        output: Pipe.Single<Q>,
+        action: suspend (Pipe.Single<T>.Consumer, Pipe.Single<Q>.Producer) -> Unit
     ) {
-        nodes.add(Node(name, listOf(input), listOf(output)) {
-            action.invoke(input.Consumer(), output.Producer())
+        nodes.add(Node(name, listOf(input), listOf(output)) { coroutineScope ->
+            action.invoke(input.Consumer(coroutineScope), output.Producer(coroutineScope))
         })
     }
 
     fun <Q> initial(
-        name: String, output: Pipe<Q>, action: suspend (Pipe<Q>.Producer) -> Unit
+        name: String, output: Pipe.Single<Q>, action: suspend (Pipe.Single<Q>.Producer) -> Unit
     ) {
-        nodes.add(Node(name, listOf(), listOf(output)) {
-            action.invoke(output.Producer())
+        nodes.add(Node(name, listOf(), listOf(output)) { coroutineScope->
+            action.invoke(output.Producer(coroutineScope))
         })
     }
 
+//    fun <T,Q> initial(
+//        name: String, output: Pair<Pipe.Single<T>,Pipe.Single<Q>>, action: suspend (Pipe.Single<T>.Producer,Pipe.Single<Q>.Producer) -> Unit
+//    ) {
+//        val (outputPipe1, outputPipe2) = output
+//        nodes.add(Node(name, listOf(), listOf(outputPipe1, outputPipe2)) {
+//            action.invoke(outputPipe1.Producer(), outputPipe2.Producer())
+//        })
+//    }
+
     fun <T> finish(
-        name: String, input: Pipe<T>,action: suspend (Pipe<T>.Consumer) -> Unit
+        name: String, input: Pipe.Single<T>, action: suspend (Pipe.Single<T>.Consumer) -> Unit
     ) {
-        nodes.add(Node(name, listOf(input), listOf()) {
-            action.invoke(input.Consumer())
+        nodes.add(Node(name, listOf(input), listOf()) { coroutineScope->
+            action.invoke(input.Consumer(coroutineScope))
         })
     }
 
     fun <T, Q, S, P> node(
         name: String,
-        input: Pair<Pipe<T>, Pipe<Q>>,
-        output: Pair<Pipe<S>, Pipe<P>>,
-        action: suspend (Pipe<T>.Consumer, Pipe<Q>.Consumer, Pipe<S>.Producer, Pipe<P>.Producer) -> Unit
+        input: Pair<Pipe.Single<T>, Pipe.Single<Q>>,
+        output: Pair<Pipe.Single<S>, Pipe.Single<P>>,
+        action: suspend (Pipe.Single<T>.Consumer, Pipe.Single<Q>.Consumer, Pipe.Single<S>.Producer, Pipe.Single<P>.Producer) -> Unit
     ) {
-        nodes.add(Node(name, input.toList(), output.toList()) {
+        nodes.add(Node(name, input.toList(), output.toList()) { corutone ->
             val (inputPipe1, inputPipe2) = input
             val (outputPipe3, outputPipe4) = output
-            action.invoke(inputPipe1.Consumer(), inputPipe2.Consumer(), outputPipe3.Producer(), outputPipe4.Producer())
+            action.invoke(
+                inputPipe1.Consumer(corutone),
+                inputPipe2.Consumer(corutone),
+                outputPipe3.Producer(corutone),
+                outputPipe4.Producer(corutone)
+            )
         })
     }
 
@@ -75,7 +92,7 @@ class WorkflowBuilder {
         name: String,
         dispatcher: CoroutineDispatcher,
         countStackContext: Int,
-        enableSecurityDeadLock : Boolean,
+        enableSecurityDeadLock: Boolean,
         enableWarringCyclePipe: Boolean,
     ): Workflow {
         return Workflow(nodes, name, dispatcher, countStackContext, enableSecurityDeadLock, enableWarringCyclePipe)
@@ -89,11 +106,12 @@ class WorkflowBuilder {
 fun Workflow(
     name: String,
     countStackContext: Int = 10,
-    enableSecurityDeadLock : Boolean = false,
+    enableSecurityDeadLock: Boolean = false,
     enableWarringCyclePipe: Boolean = false,
     dispatcher: CoroutineDispatcher = Dispatchers.Default, init: WorkflowBuilder.() -> Unit
 ): Workflow {
-    return WorkflowBuilder().apply(init).build(name,dispatcher, countStackContext, enableSecurityDeadLock, enableWarringCyclePipe)
+    return WorkflowBuilder().apply(init)
+        .build(name, dispatcher, countStackContext, enableSecurityDeadLock, enableWarringCyclePipe)
 }
 
 fun SharedWorkflow(init: WorkflowBuilder.() -> Unit): SharedWorkflow {
