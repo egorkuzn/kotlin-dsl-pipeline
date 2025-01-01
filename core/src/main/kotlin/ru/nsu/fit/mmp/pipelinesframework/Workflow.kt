@@ -1,4 +1,4 @@
-package ru.nsu.fit.mmp.pipelinesframework
+package ru.nsu.fit.mmp.pipelinesframework.ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -12,6 +12,11 @@ class Workflow(
     private val coroutineScope = CoroutineScope(dispatcher)
     private val jobs = mutableListOf<Job>()
 
+    /**
+     * Довольно плохое isAnyChannelClosed
+     * Помогает, но плохо  решает проблему, так как всё равно стреляет ошибка,
+     * которую я интерпретирую, что происходит попытка отправки.
+     */
     fun start() {
         nodes.forEach { node -> jobs.add(coroutineScope.launch {
             while (!node.isAnyChannelClosed()) node.actions.invoke()
@@ -147,6 +152,8 @@ fun Workflow(
     return WorkflowBuilder(dispatcher).apply(init).build(dispatcher)
 }
 
-//fun SharedWorkflow(init: WorkflowBuilder.() -> Unit): SharedWorkflow {
-//    return WorkflowBuilder().apply(init).buildSharedWorkflow()
-//}
+fun SharedWorkflow(init: WorkflowBuilder.() -> Unit): SharedWorkflow {
+    return WorkflowBuilder(
+        TODO("Вот а тут что для SharedWorkflow - вопросы предложения")
+    ).apply(init).buildSharedWorkflow()
+}

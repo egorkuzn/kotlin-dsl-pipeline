@@ -1,4 +1,4 @@
-package ru.nsu.fit.mmp.pipelinesframework
+package ru.nsu.fit.mmp.pipelinesframework.ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.channels.ReceiveChannel

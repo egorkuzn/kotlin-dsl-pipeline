@@ -3,6 +3,7 @@ package ru.nsu.fit.mmp.pipelinesframework
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.produce
+import ru.nsu.fit.mmp.pipelinesframework.ru.nsu.fit.mmp.pipelinesframework.Workflow
 import kotlin.time.Duration.Companion.seconds
 
 fun line() = println("-".repeat(30))
@@ -18,10 +19,10 @@ fun main() {
 
         node(
             name = "Выведи символ 'a' n раз",
-            inputs = listOf(numbers),
+            input = numbers,
             output = symbols,
         ) {
-            "a".repeat(it[0])
+            "a".repeat(it)
         }
 
         terminate(
@@ -42,7 +43,7 @@ fun main() {
     }
 
     workflow.start()
-    workflow.stop(duration = 30.seconds)
+    workflow.stop(duration = 10.seconds)
 
     line()
 }
