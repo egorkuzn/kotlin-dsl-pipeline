@@ -120,7 +120,7 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
     }
 
     /**
-     * Один-к-одному
+     * Вывод
      */
     fun <T> terminate(
         name: String,
