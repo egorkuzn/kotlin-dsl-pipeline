@@ -1,6 +1,10 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.SendChannel
+import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration
 
 class Workflow(
     private val nodes: List<Node>, dispatcher: CoroutineDispatcher
@@ -9,11 +13,20 @@ class Workflow(
     private val jobs = mutableListOf<Job>()
 
     fun start() {
-        nodes.forEach { node -> jobs.add(coroutineScope.launch { node.actions.invoke() }) }
+        nodes.forEach { node -> jobs.add(coroutineScope.launch {
+            while (!node.isAnyChannelClosed()) node.actions.invoke()
+        }) }
     }
 
-    suspend fun stop() {
-        joinAll(*jobs.toTypedArray())
+    fun stop(duration: Duration) {
+        runBlocking {
+            delay(duration)
+            nodes.forEach { node ->
+                node.input.forEach { it.cancel() }
+                node.output.forEach { it.close() }
+            }
+            joinAll(*jobs.toTypedArray())
+        }
     }
 }
 
@@ -21,27 +34,97 @@ class SharedWorkflow(private val nodes: List<Node>) {
     fun getNodes(): List<Node> = nodes
 }
 
-class WorkflowBuilder {
+/**
+ * Предлагается в случае отправки с разными типами использовать списки Any.
+ * Реализация под конкретное количество - это ужасно. Предлагается пользователю самомстоятельно кастовать.
+ * В рамках эксперимента использовался массив с типами - от него мало выгоды.
+ */
+class WorkflowBuilder(override val coroutineContext: CoroutineContext) : CoroutineScope {
     private val nodes = mutableListOf<Node>()
 
+    companion object {
+        const val ERROR_MESSAGE = """
+            Количество элементов, которые возвращает action, не соответсвует количеству каналов-получателей
+        """
+    }
+
+    /**
+     * Один-к-одному
+     */
     fun <T, Q> node(
-        name: String, input: Pipe<T>, output: Pipe<Q>, action: suspend (Pipe<T>.Consumer, Pipe<Q>.Producer) -> Unit
+        name: String,
+        input: ReceiveChannel<T>,
+        output: SendChannel<Q>,
+        action: suspend (T) -> Q
     ) {
         nodes.add(Node(name, listOf(input), listOf(output)) {
-            action.invoke(input.Consumer(), output.Producer())
+            val inputElem = input.receive()
+            val outputElem = action.invoke(inputElem)
+            output.send(outputElem)
         })
     }
 
-    fun <T, Q, S, P> node(
+    /**
+     * Многие-ко-многим
+     */
+    fun <T, Q> node(
         name: String,
-        input: Pair<Pipe<T>, Pipe<Q>>,
-        output: Pair<Pipe<S>, Pipe<P>>,
-        action: suspend (Pipe<T>.Consumer, Pipe<Q>.Consumer, Pipe<S>.Producer, Pipe<P>.Producer) -> Unit
+        inputs: List<ReceiveChannel<T>>,
+        outputs: List<SendChannel<Q>>,
+        action: suspend (List<T>) -> Array<Q>,
     ) {
-        nodes.add(Node(name, input.toList(), output.toList()) {
-            val (inputPipe1, inputPipe2) = input
-            val (outputPipe3, outputPipe4) = output
-            action.invoke(inputPipe1.Consumer(), inputPipe2.Consumer(), outputPipe3.Producer(), outputPipe4.Producer())
+        nodes.add(Node(name, inputs, outputs) {
+            val inputElems = inputs.map { input -> input.receive() }
+            val outputElems = action.invoke(inputElems)
+            if (outputElems.size == outputs.size) throw IllegalStateException(ERROR_MESSAGE)
+            outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
+        })
+    }
+
+    /**
+     * Один-ко-многим
+     */
+    fun <T, Q> node(
+        name: String,
+        input: ReceiveChannel<T>,
+        outputs: List<SendChannel<Q>>,
+        action: suspend (T) -> Array<Q>,
+    ) {
+        nodes.add(Node(name, listOf(input), outputs) {
+            val inputElem = input.receive()
+            val outputElems = action.invoke(inputElem)
+            if (outputElems.size == outputs.size) throw IllegalStateException(ERROR_MESSAGE)
+            outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
+        })
+    }
+
+    /**
+     * Многие-к-одному
+     */
+    fun <T, Q> node(
+        name: String,
+        inputs: List<ReceiveChannel<T>>,
+        output: SendChannel<Q>,
+        action: suspend (List<T>) -> Q,
+    ) {
+        nodes.add(Node(name, inputs, listOf(output)) {
+            val inputElems = inputs.map { input -> input.receive() }
+            val outputElem = action.invoke(inputElems)
+            output.send(outputElem)
+        })
+    }
+
+    /**
+     * Один-к-одному
+     */
+    fun <T> terminate(
+        name: String,
+        input: ReceiveChannel<T>,
+        action: suspend (T) -> Unit
+    ) {
+        nodes.add(Node(name, listOf(input), emptyList()) {
+            val inputElem = input.receive()
+            action.invoke(inputElem)
         })
     }
 
@@ -61,9 +144,9 @@ class WorkflowBuilder {
 fun Workflow(
     dispatcher: CoroutineDispatcher = Dispatchers.Default, init: WorkflowBuilder.() -> Unit
 ): Workflow {
-    return WorkflowBuilder().apply(init).build(dispatcher)
+    return WorkflowBuilder(dispatcher).apply(init).build(dispatcher)
 }
 
-fun SharedWorkflow(init: WorkflowBuilder.() -> Unit): SharedWorkflow {
-    return WorkflowBuilder().apply(init).buildSharedWorkflow()
-}
+//fun SharedWorkflow(init: WorkflowBuilder.() -> Unit): SharedWorkflow {
+//    return WorkflowBuilder().apply(init).buildSharedWorkflow()
+//}
