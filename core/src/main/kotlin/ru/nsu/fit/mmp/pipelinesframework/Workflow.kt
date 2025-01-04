@@ -2,6 +2,7 @@ package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.produce as pproduce
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
@@ -37,6 +38,7 @@ class Workflow(
                 node.input.forEach { it.cancel() }
                 node.output.forEach { it.close() }
             }
+
             joinAll(*jobs.toTypedArray())
         }
     }
@@ -154,8 +156,8 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
 
     fun <E> Pipe(): Pipe<E> = Pipe.of(Channel<E>())
 
-    @OptIn(ExperimentalTypeInference::class)
-    fun <E> produce(@BuilderInference block: suspend ProducerScope<E>.() -> Unit): ReceivePipe<E> = ReceivePipe.of(pproduce(block))
+    @OptIn(ExperimentalTypeInference::class, ExperimentalCoroutinesApi::class)
+    fun <E> produce(@BuilderInference block: suspend ProducerScope<E>.() -> Unit): ReceivePipe<E> = ReceivePipe.of(pproduce(block = block))
 }
 
 fun Workflow(
