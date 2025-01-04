@@ -73,12 +73,12 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
         name: String,
         inputs: List<ReceivePipe<T>>,
         outputs: List<SendPipe<Q>>,
-        action: suspend (List<T>) -> Array<Q>,
+        action: suspend (List<T>) -> List<Q>,
     ) {
         nodes.add(Node(name, inputs, outputs) {
             val inputElems = inputs.map { input -> input.tryReceive().getOrNull() ?: return@Node }
             val outputElems = action.invoke(inputElems)
-            if (outputElems.size == outputs.size) throw IllegalStateException(ERROR_MESSAGE)
+            if (outputElems.size != outputs.size) throw IllegalStateException(ERROR_MESSAGE)
             outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
         })
     }
