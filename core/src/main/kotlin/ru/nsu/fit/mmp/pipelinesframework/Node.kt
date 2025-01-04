@@ -1,8 +1,8 @@
-package ru.nsu.fit.mmp.pipelinesframework.ru.nsu.fit.mmp.pipelinesframework
+package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.SendChannel
+import ru.nsu.fit.mmp.pipelinesframework.pipe.ReceivePipe
+import ru.nsu.fit.mmp.pipelinesframework.pipe.SendPipe
 
 /**
  * @param name Название ноды
@@ -13,9 +13,9 @@ import kotlinx.coroutines.channels.SendChannel
 @OptIn(DelicateCoroutinesApi::class)
 class Node(
     name: String,
-    val input: List<ReceiveChannel<*>>,
-    val output: List<SendChannel<*>>,
-    val actions: suspend ()->Unit
+    val input: List<ReceivePipe<*>>,
+    val output: List<SendPipe<*>>,
+    val actions: suspend () -> Unit,
 ) {
     fun isAnyChannelClosed(): Boolean = input.any { it.isClosedForReceive } || output.any { it.isClosedForSend }
 }

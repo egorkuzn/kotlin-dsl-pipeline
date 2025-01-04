@@ -1,13 +1,18 @@
-package ru.nsu.fit.mmp.pipelinesframework.ru.nsu.fit.mmp.pipelinesframework
+package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.channels.produce as pproduce
+import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
+import ru.nsu.fit.mmp.pipelinesframework.pipe.ReceivePipe
+import ru.nsu.fit.mmp.pipelinesframework.pipe.SendPipe
 import kotlin.coroutines.CoroutineContext
+import kotlin.experimental.ExperimentalTypeInference
 import kotlin.time.Duration
 
 class Workflow(
-    private val nodes: List<Node>, dispatcher: CoroutineDispatcher
+    private val nodes: List<Node>, dispatcher: CoroutineDispatcher,
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
     private val jobs = mutableListOf<Job>()
@@ -18,9 +23,11 @@ class Workflow(
      * которую я интерпретирую, что происходит попытка отправки.
      */
     fun start() {
-        nodes.forEach { node -> jobs.add(coroutineScope.launch {
-            while (!node.isAnyChannelClosed()) node.actions.invoke()
-        }) }
+        nodes.forEach { node ->
+            jobs.add(coroutineScope.launch {
+                while (!node.isAnyChannelClosed()) node.actions.invoke()
+            })
+        }
     }
 
     fun stop(duration: Duration) {
@@ -58,9 +65,9 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T, Q> node(
         name: String,
-        input: ReceiveChannel<T>,
-        output: SendChannel<Q>,
-        action: suspend (T) -> Q
+        input: ReceivePipe<T>,
+        output: SendPipe<Q>,
+        action: suspend (T) -> Q,
     ) {
         nodes.add(Node(name, listOf(input), listOf(output)) {
             val inputElem = input.receive()
@@ -74,8 +81,8 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T, Q> node(
         name: String,
-        inputs: List<ReceiveChannel<T>>,
-        outputs: List<SendChannel<Q>>,
+        inputs: List<ReceivePipe<T>>,
+        outputs: List<SendPipe<Q>>,
         action: suspend (List<T>) -> Array<Q>,
     ) {
         nodes.add(Node(name, inputs, outputs) {
@@ -91,8 +98,8 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T, Q> node(
         name: String,
-        input: ReceiveChannel<T>,
-        outputs: List<SendChannel<Q>>,
+        input: ReceivePipe<T>,
+        outputs: List<SendPipe<Q>>,
         action: suspend (T) -> Array<Q>,
     ) {
         nodes.add(Node(name, listOf(input), outputs) {
@@ -108,8 +115,8 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T, Q> node(
         name: String,
-        inputs: List<ReceiveChannel<T>>,
-        output: SendChannel<Q>,
+        inputs: List<ReceivePipe<T>>,
+        output: SendPipe<Q>,
         action: suspend (List<T>) -> Q,
     ) {
         nodes.add(Node(name, inputs, listOf(output)) {
@@ -124,8 +131,8 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T> terminate(
         name: String,
-        input: ReceiveChannel<T>,
-        action: suspend (T) -> Unit
+        input: ReceivePipe<T>,
+        action: suspend (T) -> Unit,
     ) {
         nodes.add(Node(name, listOf(input), emptyList()) {
             val inputElem = input.receive()
@@ -144,10 +151,15 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
     fun buildSharedWorkflow(): SharedWorkflow {
         return SharedWorkflow(nodes)
     }
+
+    fun <E> Pipe(): Pipe<E> = Pipe.of(Channel<E>())
+
+    @OptIn(ExperimentalTypeInference::class)
+    fun <E> produce(@BuilderInference block: suspend ProducerScope<E>.() -> Unit): ReceivePipe<E> = ReceivePipe.of(pproduce(block))
 }
 
 fun Workflow(
-    dispatcher: CoroutineDispatcher = Dispatchers.Default, init: WorkflowBuilder.() -> Unit
+    dispatcher: CoroutineDispatcher = Dispatchers.Default, init: WorkflowBuilder.() -> Unit,
 ): Workflow {
     return WorkflowBuilder(dispatcher).apply(init).build(dispatcher)
 }
