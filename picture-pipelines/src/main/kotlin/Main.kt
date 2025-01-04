@@ -18,22 +18,22 @@ fun main() {
 
         node(
             name = "Выведи символ 'a' n раз",
-            input = numbers,
-            output = symbols,
+            inputs = listOf(numbers),
+            outputs = listOf(symbols),
         ) {
             "a".repeat(it)
         }
 
         terminate(
             name = "Принтер с улыбкой",
-            input = symbols
+            inputs = listOf(symbols)
         ) {
             println("$it)")
         }
 
         terminate(
             name = "Принтер",
-            input = symbols
+            inputs = listOf(symbols)
         ) {
             println(it)
         }

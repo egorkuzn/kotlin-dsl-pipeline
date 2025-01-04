@@ -2,21 +2,22 @@ package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.ProducerScope
-import kotlinx.coroutines.channels.produce as pproduce
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 import ru.nsu.fit.mmp.pipelinesframework.pipe.ReceivePipe
 import ru.nsu.fit.mmp.pipelinesframework.pipe.SendPipe
 import kotlin.coroutines.CoroutineContext
 import kotlin.experimental.ExperimentalTypeInference
 import kotlin.time.Duration
+import kotlinx.coroutines.channels.produce as pproduce
 
 class Workflow(
     private val nodes: List<Node>, dispatcher: CoroutineDispatcher,
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
     private val jobs = mutableListOf<Job>()
+
+    // -----> [x] -->
 
     /**
      * Довольно плохое isAnyChannelClosed
@@ -63,23 +64,10 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
     }
 
     /**
-     * Один-к-одному
-     */
-    fun <T, Q> node(
-        name: String,
-        input: ReceivePipe<T>,
-        output: SendPipe<Q>,
-        action: suspend (T) -> Q,
-    ) {
-        nodes.add(Node(name, listOf(input), listOf(output)) {
-            val inputElem = input.receive()
-            val outputElem = action.invoke(inputElem)
-            output.send(outputElem)
-        })
-    }
-
-    /**
      * Многие-ко-многим
+     * А -> x
+     * B -> x
+     * C -> xxxx
      */
     fun <T, Q> node(
         name: String,
@@ -88,43 +76,10 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
         action: suspend (List<T>) -> Array<Q>,
     ) {
         nodes.add(Node(name, inputs, outputs) {
-            val inputElems = inputs.map { input -> input.receive() }
+            val inputElems = inputs.map { input -> input.tryReceive().getOrNull() ?: return@Node }
             val outputElems = action.invoke(inputElems)
             if (outputElems.size == outputs.size) throw IllegalStateException(ERROR_MESSAGE)
             outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
-        })
-    }
-
-    /**
-     * Один-ко-многим
-     */
-    fun <T, Q> node(
-        name: String,
-        input: ReceivePipe<T>,
-        outputs: List<SendPipe<Q>>,
-        action: suspend (T) -> Array<Q>,
-    ) {
-        nodes.add(Node(name, listOf(input), outputs) {
-            val inputElem = input.receive()
-            val outputElems = action.invoke(inputElem)
-            if (outputElems.size == outputs.size) throw IllegalStateException(ERROR_MESSAGE)
-            outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
-        })
-    }
-
-    /**
-     * Многие-к-одному
-     */
-    fun <T, Q> node(
-        name: String,
-        inputs: List<ReceivePipe<T>>,
-        output: SendPipe<Q>,
-        action: suspend (List<T>) -> Q,
-    ) {
-        nodes.add(Node(name, inputs, listOf(output)) {
-            val inputElems = inputs.map { input -> input.receive() }
-            val outputElem = action.invoke(inputElems)
-            output.send(outputElem)
         })
     }
 
@@ -133,12 +88,12 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T> terminate(
         name: String,
-        input: ReceivePipe<T>,
+        input: List<ReceivePipe<T>>,
         action: suspend (T) -> Unit,
     ) {
-        nodes.add(Node(name, listOf(input), emptyList()) {
-            val inputElem = input.receive()
-            action.invoke(inputElem)
+        nodes.add(Node(name, input, emptyList()) {
+            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
+            inputElems.map { action.invoke(it) }
         })
     }
 
@@ -157,7 +112,9 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
     fun <E> Pipe(): Pipe<E> = Pipe.of(Channel<E>())
 
     @OptIn(ExperimentalTypeInference::class, ExperimentalCoroutinesApi::class)
-    fun <E> produce(@BuilderInference block: suspend ProducerScope<E>.() -> Unit): ReceivePipe<E> = ReceivePipe.of(pproduce(block = block))
+    fun <E> produce(
+        @BuilderInference block: suspend ProducerScope<E>.() -> Unit
+    ): ReceivePipe<E> = ReceivePipe.of(pproduce(block = block))
 }
 
 fun Workflow(
