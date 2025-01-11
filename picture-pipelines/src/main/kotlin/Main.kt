@@ -1,6 +1,7 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
-import ru.nsu.fit.mmp.pipelinesframework.channel.ReceiveBufferChannel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 import kotlin.time.Duration.Companion.seconds
 
@@ -18,29 +19,58 @@ fun main() {
             inputs = numbers,
             outputs = symbols
         ) { consumer, producer ->
+            consumer.onListener { producer.commit("a".repeat(it)) }
+        }
 
-            //listOf("a".repeat(it.first()))
+        initial(
+            name = "Поток чисел",
+            output = numbers
+        ) { producer ->
+            (1..10).map {
+                producer.commit(it)
+            }
         }
 
         terminate(
             name = "Принтер с улыбкой",
             input = symbols
-        ) {
-            println("$it)")
+        ) { consumer ->
+
+            consumer.onListener { println("$it)") }
+
         }
 
         terminate(
             name = "Принтер",
             input = symbols
-        ) {
-            println(it)
+        ) { consumer ->
+            consumer.onListener { println("Принтер $it)") }
         }
-
-        println("Yeah")
     }
 
     workflow.start()
-    workflow.stop(duration = 10.seconds)
+
+    runBlocking {
+        delay(10.seconds)
+        workflow.stop()
+    }
 
     line()
+
+//    val channel = BufferChannel.of<Int>()
+//    runBlocking {
+//        channel.send(10)
+//        channel.send(30)
+//
+//        channel.send(20)
+//        channel.send(30)
+//        channel.send(30)
+//
+//       channel.bufferElements().forEach(::println)
+//
+//        for (p in channel) {
+//            println("element: $p")
+//        }
+//    }
 }
+
