@@ -60,6 +60,7 @@ class Pipe<T> {
             if (!_channel.isClosedForSend) {
                 _channel.send(value)
             } else {
+                //TODO Тут момент уязвимый при остановке
                 throw IllegalStateException("Channel is closed")
             }
         }
