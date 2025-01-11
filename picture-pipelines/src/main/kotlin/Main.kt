@@ -10,9 +10,9 @@ fun line() = println("-".repeat(30))
 fun main() {
     line()
     val workflow = Workflow {
-        val numbers = Pipe.Single<Int>()
+        val numbers = Pipe<Int>()
 
-        val symbols = Pipe.Single<String>()
+        val symbols = Pipe<String>()
 
         node(
             name = "Выведи символ 'a' n раз",
@@ -20,6 +20,7 @@ fun main() {
             outputs = symbols
         ) { consumer, producer ->
             consumer.onListener { producer.commit("a".repeat(it)) }
+            println("www")
         }
 
         initial(
@@ -36,7 +37,8 @@ fun main() {
             input = symbols
         ) { consumer ->
 
-            consumer.onListener { println("$it)") }
+            consumer.listen { println("$it)") }
+            println("www2")
 
         }
 

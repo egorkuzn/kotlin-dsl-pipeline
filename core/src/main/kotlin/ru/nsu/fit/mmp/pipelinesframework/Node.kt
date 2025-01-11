@@ -1,5 +1,6 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
+import kotlinx.coroutines.CoroutineScope
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 
 /**
@@ -10,9 +11,9 @@ import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
  */
 class Node(
     name: String,
-    private val input: List<Pipe>,
-    private val output: List<Pipe>,
-    val actions: suspend () -> Unit,
+    private val input: List<Pipe<*>>,
+    private val output: List<Pipe<*>>,
+    val actions: suspend (coroutineScope: CoroutineScope) -> Unit,
 ) {
     fun destroy(){
         input.forEach { it.close() }

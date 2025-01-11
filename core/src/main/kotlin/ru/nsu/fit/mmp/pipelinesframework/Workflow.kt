@@ -20,7 +20,7 @@ class Workflow(
         nodes.forEach { node ->
             jobs.add(coroutineScope.launch {
 //                while (!node.isAnyChannelClosed()) node.actions.invoke()
-                node.actions.invoke()
+                node.actions.invoke(coroutineScope)
             })
         }
     }
@@ -59,12 +59,12 @@ class WorkflowBuilder {
      */
     fun <T, Q> node(
         name: String,
-        inputs: Pipe.Single<T>,
-        outputs: Pipe.Single<Q>,
-        action: suspend (Pipe.Single<T>.Consumer, Pipe.Single<Q>.Producer) -> Unit
+        inputs: Pipe<T>,
+        outputs: Pipe<Q>,
+        action: suspend (Pipe<T>.Consumer, Pipe<Q>.Producer) -> Unit
     ) {
         nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
-            action.invoke(inputs.Consumer(), outputs.Producer())
+            action.invoke(inputs.Consumer(it), outputs.Producer())
 //            val inputElems = inputs.map { input -> input.tryReceive().getOrNull() ?: return@Node }
 //            val outputElems = action.invoke(inputElems)
 //            if (outputElems.size != outputs.size) throw IllegalStateException(ERROR_MESSAGE)
@@ -74,8 +74,8 @@ class WorkflowBuilder {
 
     fun <T> initial(
         name: String,
-        output: Pipe.Single<T>,
-        action: suspend (Pipe.Single<T>.Producer) -> Unit,
+        output: Pipe<T>,
+        action: suspend (Pipe<T>.Producer) -> Unit,
     ) {
         nodes.add(Node(name, emptyList(), listOf(output)) {
             action.invoke(output.Producer())
@@ -89,11 +89,11 @@ class WorkflowBuilder {
      */
     fun <T> terminate(
         name: String,
-        input: Pipe.Single<T>,
-        action: suspend (Pipe.Single<T>.Consumer) -> Unit,
+        input: Pipe<T>,
+        action: suspend (Pipe<T>.Consumer) -> Unit,
     ) {
         nodes.add(Node(name, listOf(input), emptyList()) {
-            action.invoke(input.Consumer())
+            action.invoke(input.Consumer(it))
 //            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
 //            inputElems.map { action.invoke(it) }
         })

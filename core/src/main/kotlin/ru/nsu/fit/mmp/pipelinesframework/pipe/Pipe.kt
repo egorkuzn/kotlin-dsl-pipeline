@@ -1,101 +1,117 @@
 package ru.nsu.fit.mmp.pipelinesframework.pipe
 
-import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.*
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
 
-sealed class Pipe {
-    abstract fun close()
+class Pipe<T> {
+    private val _channel = BufferChannel.of<T>();
+    private val listeners = mutableListOf<(Context) -> Unit>()
 
-    abstract class Context <T> {
-        abstract fun getElements(): List<T>
+    inner class Context(private val element: List<T>) {
+        fun getElements(): List<T> {
+            return element;
+        }
     }
 
-    abstract fun onListenerContext(context: (Context<*>) -> Unit);
+    inner class Consumer(private val coroutineScope: CoroutineScope) {
+        val channel = _channel
+        suspend fun listen(action: suspend (T) -> Unit) {
+            _channel.receive().apply {
+                action(this)
+                notifyListeners()
 
-    class Single<T> : Pipe() {
-        private val channel = BufferChannel.of<T>();
-        private val listeners = mutableListOf<(Context<T>) -> Unit>()
-
-        inner class SingleContext(private val element: List<T>) : Context<T>() {
-            override fun getElements(): List<T> {
-                return element;
             }
         }
 
-        inner class Consumer {
-            suspend fun listen(action: suspend (T) -> Unit) {
-                channel.receive().apply {
-                    action(this)
-                    notifyListeners()
-
-                }
-            }
-
-            suspend fun onListener(action: suspend (T) -> Unit) {
-                for (p in channel) {
+        fun onListener(action: suspend (T) -> Unit) {
+            coroutineScope.launch {
+                for (p in _channel) {
                     action(p)
                     notifyListeners()
                 }
             }
-
-//            operator fun <U> plus(other: Single<U>.Consumer): Dual<T, U>.Consumer {
-//                return Dual<T,U>().Consumer(coroutineScope)
-//            }
         }
 
-        inner class Producer {
+        operator fun <U> plus(other: Pipe<U>.Consumer): DualPipe<T, U>.Consumer {
+            return DualPipe(_channel, other.channel).Consumer(coroutineScope)
+        }
+    }
 
+    inner class Producer {
 
-            @OptIn(DelicateCoroutinesApi::class)
-            suspend fun commit(value: T) {
-                if (!channel.isClosedForSend) {
-                    channel.send(value)
-                    notifyListeners() // Уведомляем всех слушателей
-                } else {
-                    throw IllegalStateException("Channel is closed")
-                }
+        @OptIn(DelicateCoroutinesApi::class)
+        suspend fun commit(value: T) {
+            if (!_channel.isClosedForSend) {
+                _channel.send(value)
+                notifyListeners()
+            } else {
+                throw IllegalStateException("Channel is closed")
             }
+        }
 
 //            operator fun <U> plus(other: Single<U>.Producer): Dual<T, U>.Producer {
 //                return Dual<T,U>().Producer()
 //            }
-        }
+    }
 
-        override fun close() {
-            channel.close()
-        }
+    fun close() {
+        _channel.close()
+    }
 
-        override fun onListenerContext(context: (Context<*>) -> Unit) {
-            synchronized(listeners) {
-                listeners.add(context) // Добавляем нового слушателя
+    fun onListenerContext(context: (Context) -> Unit) {
+        synchronized(listeners) {
+            listeners.add(context) // Добавляем нового слушателя
+        }
+    }
+
+
+    private fun notifyListeners() {
+        synchronized(listeners) {
+            val bufferedElements = _channel.bufferElements()
+            val context = Context(bufferedElements)
+            listeners.forEach { it(context) } // Уведомляем всех слушателей
+        }
+    }
+}
+
+class DualPipe<T, U>(
+    private val _channelT: BufferChannel<T>,
+    private val _channelU: BufferChannel<U>,
+) {
+
+    inner class Consumer(private val coroutineScope: CoroutineScope) {
+        suspend fun listen(action: (T, U) -> Unit) {
+            val jobs = coroutineScope.launch {
+                val valueT = async { _channelT.receive() }
+                val valueU = async { _channelU.receive() }
+
+                action.invoke(valueT.await(), valueU.await())
             }
+
+            jobs.join()
         }
 
+        @OptIn(DelicateCoroutinesApi::class)
+        fun onListener(action: (T, U) -> Unit) {
+            coroutineScope.launch {
+                while (!_channelT.isClosedForReceive && !_channelU.isClosedForSend) {
+                    val valueT = async { _channelT.receive() }
+                    val valueU = async { _channelU.receive() }
 
-        private fun notifyListeners() {
-            synchronized(listeners) {
-                val bufferedElements = channel.bufferElements()
-                val context = SingleContext(bufferedElements)
-                listeners.forEach { it(context) } // Уведомляем всех слушателей
+                    action.invoke(valueT.await(), valueU.await())
+                }
             }
         }
     }
 
-//    class Dual<T, U>(
-//
-//    ) : Pipe() {
-//
-//
-//        inner class Consumer(private val coroutineScope: CoroutineScope) {
-//            fun onListener(action: (T, U) -> Unit) {
-//
-//            }
-//        }
-//
-//        inner class Producer {
-//            suspend fun commit(value1: T, value2: U) {
-//
-//            }
-//        }
-//    }
+    inner class Producer(private val coroutineScope: CoroutineScope) {
+        suspend fun commit(value1: T, value2: U) {
+            val jobs = coroutineScope.launch {
+                val valueT = async { _channelT.send(value1) }
+                val valueU = async { _channelU.send(value2) }
+                awaitAll(valueT, valueU)
+            }
+            jobs.join()
+        }
+    }
 }
