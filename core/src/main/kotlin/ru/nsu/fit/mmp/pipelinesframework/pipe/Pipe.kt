@@ -1,14 +1,31 @@
 package ru.nsu.fit.mmp.pipelinesframework.pipe
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.launch
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
 
 class Pipe<T> {
     private val _channel = BufferChannel.of<T>();
+    val context = Context()
 
-    inner class Context {
-        fun getElements(): List<T> {
-            return _channel.bufferElements();
+    inner class Context{
+        private val listeners = mutableListOf<(Context) -> Unit>()
+
+        init {
+            _channel.onListenerBuffer {
+                handle(it)
+            }
+        }
+
+        fun onListener(action:  (context: Context) -> Unit) {
+            listeners.add(action)
+        }
+
+        private fun handle(buffer: List<T>){
+            listeners.forEach {
+                it.invoke(this)
+            }
         }
     }
 

@@ -3,11 +3,13 @@ package ru.nsu.fit.mmp.pipelinesframework.channel.impl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ChannelIterator
+import kotlinx.coroutines.channels.ChannelResult
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.selects.SelectClause1
 import kotlinx.coroutines.selects.SelectClause2
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
-import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe.Context
 
 class BufferChannelImpl<E> : BufferChannel<E> {
     private val channel = Channel<E>(Channel.BUFFERED)

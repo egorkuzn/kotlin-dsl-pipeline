@@ -10,12 +10,36 @@ import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
  * @see Pipe
  */
 class Node(
-    name: String,
+    val name: String,
     private val input: List<Pipe<*>>,
     private val output: List<Pipe<*>>,
     val actions: suspend (coroutineScope: CoroutineScope) -> Unit,
 ) {
-    fun destroy(){
+    val context: Context = Context()
+
+    inner class Context {
+        private val listeners = mutableListOf<(Context) -> Unit>()
+
+        init {
+            (input + output).forEach { pipe ->
+                pipe.context.onListener {
+                    handle(pipe)
+                }
+            }
+        }
+
+        private fun handle(pipe: Pipe<*>) {
+            listeners.forEach {
+                it.invoke(this)
+            }
+        }
+
+        fun onListener(action: (context: Context) -> Unit) {
+            listeners.add(action)
+        }
+    }
+
+    fun destroy() {
         input.forEach { it.close() }
         output.forEach { it.close() }
     }

@@ -1,6 +1,7 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.*
+import ru.nsu.fit.mmp.pipelinesframework.Node.Context
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 
 class Workflow(
@@ -8,8 +9,30 @@ class Workflow(
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
     private val jobs = mutableListOf<Job>()
+    private val context = Context()
 
-    // -----> [x] -->
+
+    inner class Context {
+        private val listeners = mutableListOf<(Context) -> Unit>()
+
+        init {
+            nodes.forEach { node ->
+                node.context.onListener {
+                    handleNodeContextChange(node)
+                }
+            }
+        }
+
+        fun onListener(listener: (Context) -> Unit) {
+            listeners.add(listener)
+        }
+
+        private fun handleNodeContextChange(node: Node) {
+            listeners.forEach {
+                it.invoke(context)
+            }
+        }
+    }
 
     /**
      * Довольно плохое isAnyChannelClosed
@@ -18,10 +41,14 @@ class Workflow(
      */
     fun start() {
         nodes.forEach { node ->
-            jobs.add(coroutineScope.launch {
-//                while (!node.isAnyChannelClosed()) node.actions.invoke()
-                node.actions.invoke(coroutineScope)
-            })
+            jobs.add(
+                coroutineScope
+                    .launch {
+                        launch {
+                            context.onListener { println("Node '${node.name}' context changed: $it") }
+                        }
+                        node.actions.invoke(coroutineScope)
+                    })
         }
     }
 
@@ -65,10 +92,6 @@ class WorkflowBuilder {
     ) {
         nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
             action.invoke(inputs.Consumer(it), outputs.Producer(it))
-//            val inputElems = inputs.map { input -> input.tryReceive().getOrNull() ?: return@Node }
-//            val outputElems = action.invoke(inputElems)
-//            if (outputElems.size != outputs.size) throw IllegalStateException(ERROR_MESSAGE)
-//            outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
         })
     }
 
@@ -79,8 +102,6 @@ class WorkflowBuilder {
     ) {
         nodes.add(Node(name, emptyList(), listOf(output)) {
             action.invoke(output.Producer(it))
-//            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
-//            inputElems.map { action.invoke(it) }
         })
     }
 
@@ -94,8 +115,6 @@ class WorkflowBuilder {
     ) {
         nodes.add(Node(name, listOf(input), emptyList()) {
             action.invoke(input.Consumer(it))
-//            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
-//            inputElems.map { action.invoke(it) }
         })
     }
 
@@ -111,12 +130,6 @@ class WorkflowBuilder {
         return SharedWorkflow(nodes)
     }
 
-//    fun <E> Pipe(): BufferChannel<E> = BufferChannel.of(Channel<E>())
-
-//    @OptIn(ExperimentalTypeInference::class, ExperimentalCoroutinesApi::class)
-//    fun <E> produce(
-//        @BuilderInference block: suspend ProducerScope<E>.() -> Unit
-//    ): ReceiveBufferChannel<E> = ReceiveBufferChannel.of(pproduce(block = block))
 }
 
 fun Workflow(
