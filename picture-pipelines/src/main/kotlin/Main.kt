@@ -24,7 +24,7 @@ fun main() {
         }
 
         initial(
-            name = "Поток чисел",
+            name = "Поток чисел 1",
             output = numbers
         ) { producer ->
             (1..10).map {

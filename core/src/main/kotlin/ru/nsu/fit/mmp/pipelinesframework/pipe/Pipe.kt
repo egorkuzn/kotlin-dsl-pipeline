@@ -5,21 +5,19 @@ import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
 
 class Pipe<T> {
     private val _channel = BufferChannel.of<T>();
-    private val listeners = mutableListOf<(Context) -> Unit>()
 
-    inner class Context(private val element: List<T>) {
+    inner class Context {
         fun getElements(): List<T> {
-            return element;
+            return _channel.bufferElements();
         }
     }
 
     inner class Consumer(private val coroutineScope: CoroutineScope) {
-        val channel = _channel
+        private val channel = _channel
+
         suspend fun listen(action: suspend (T) -> Unit) {
             _channel.receive().apply {
                 action(this)
-                notifyListeners()
-
             }
         }
 
@@ -27,7 +25,6 @@ class Pipe<T> {
             coroutineScope.launch {
                 for (p in _channel) {
                     action(p)
-                    notifyListeners()
                 }
             }
         }
@@ -37,40 +34,25 @@ class Pipe<T> {
         }
     }
 
-    inner class Producer {
+    inner class Producer(private val coroutineScope: CoroutineScope) {
+        private val channel = _channel
 
         @OptIn(DelicateCoroutinesApi::class)
         suspend fun commit(value: T) {
             if (!_channel.isClosedForSend) {
                 _channel.send(value)
-                notifyListeners()
             } else {
                 throw IllegalStateException("Channel is closed")
             }
         }
 
-//            operator fun <U> plus(other: Single<U>.Producer): Dual<T, U>.Producer {
-//                return Dual<T,U>().Producer()
-//            }
+            operator fun <U> plus(other: Pipe<U>.Producer): DualPipe<T, U>.Producer {
+                return DualPipe<T,U>(_channel, other.channel).Producer(coroutineScope)
+            }
     }
 
     fun close() {
         _channel.close()
-    }
-
-    fun onListenerContext(context: (Context) -> Unit) {
-        synchronized(listeners) {
-            listeners.add(context) // Добавляем нового слушателя
-        }
-    }
-
-
-    private fun notifyListeners() {
-        synchronized(listeners) {
-            val bufferedElements = _channel.bufferElements()
-            val context = Context(bufferedElements)
-            listeners.forEach { it(context) } // Уведомляем всех слушателей
-        }
     }
 }
 

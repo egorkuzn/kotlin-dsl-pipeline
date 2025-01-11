@@ -64,7 +64,7 @@ class WorkflowBuilder {
         action: suspend (Pipe<T>.Consumer, Pipe<Q>.Producer) -> Unit
     ) {
         nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
-            action.invoke(inputs.Consumer(it), outputs.Producer())
+            action.invoke(inputs.Consumer(it), outputs.Producer(it))
 //            val inputElems = inputs.map { input -> input.tryReceive().getOrNull() ?: return@Node }
 //            val outputElems = action.invoke(inputElems)
 //            if (outputElems.size != outputs.size) throw IllegalStateException(ERROR_MESSAGE)
@@ -78,7 +78,7 @@ class WorkflowBuilder {
         action: suspend (Pipe<T>.Producer) -> Unit,
     ) {
         nodes.add(Node(name, emptyList(), listOf(output)) {
-            action.invoke(output.Producer())
+            action.invoke(output.Producer(it))
 //            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
 //            inputElems.map { action.invoke(it) }
         })
