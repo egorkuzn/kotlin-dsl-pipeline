@@ -23,12 +23,12 @@ class Node(
         init {
             (input + output).forEach { pipe ->
                 pipe.context.onListener {
-                    handle(pipe)
+                    handlePipeContextChange(pipe)
                 }
             }
         }
 
-        private fun handle(pipe: Pipe<*>) {
+        private fun handlePipeContextChange(pipe: Pipe<*>) {
             listeners.forEach {
                 it.invoke(this)
             }

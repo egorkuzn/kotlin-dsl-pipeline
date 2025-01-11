@@ -14,7 +14,7 @@ class Pipe<T> {
 
         init {
             _channel.onListenerBuffer {
-                handle(it)
+                handleBufferChange(it)
             }
         }
 
@@ -22,7 +22,7 @@ class Pipe<T> {
             listeners.add(action)
         }
 
-        private fun handle(buffer: List<T>){
+        private fun handleBufferChange(buffer: List<T>){
             listeners.forEach {
                 it.invoke(this)
             }
