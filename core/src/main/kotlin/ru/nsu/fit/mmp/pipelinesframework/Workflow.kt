@@ -6,6 +6,7 @@ import kotlinx.coroutines.channels.ProducerScope
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
 import ru.nsu.fit.mmp.pipelinesframework.channel.ReceiveBufferChannel
 import ru.nsu.fit.mmp.pipelinesframework.channel.SendPipe
+import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 import kotlin.coroutines.CoroutineContext
 import kotlin.experimental.ExperimentalTypeInference
 import kotlin.time.Duration
@@ -27,7 +28,7 @@ class Workflow(
     fun start() {
         nodes.forEach { node ->
             jobs.add(coroutineScope.launch {
-                while (!node.isAnyChannelClosed()) node.actions.invoke()
+//                while (!node.isAnyChannelClosed()) node.actions.invoke()
             })
         }
     }
@@ -36,8 +37,8 @@ class Workflow(
         runBlocking {
             delay(duration)
             nodes.forEach { node ->
-                node.input.forEach { it.cancel() }
-                node.output.forEach { it.close() }
+//                node.input.forEach { it.cancel() }
+//                node.output.forEach { it.close() }
             }
 
             joinAll(*jobs.toTypedArray())
@@ -71,15 +72,15 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T, Q> node(
         name: String,
-        inputs: List<ReceiveBufferChannel<T>>,
-        outputs: List<SendPipe<Q>>,
-        action: suspend (List<T>) -> List<Q>,
+        inputs: Pipe.Single<T>,
+        outputs: Pipe.Single<Q>,
+        action: suspend (Pipe.Single<T>.Consumer, Pipe.Single<Q>.Producer) -> Unit
     ) {
-        nodes.add(Node(name, inputs, outputs) {
-            val inputElems = inputs.map { input -> input.tryReceive().getOrNull() ?: return@Node }
-            val outputElems = action.invoke(inputElems)
-            if (outputElems.size != outputs.size) throw IllegalStateException(ERROR_MESSAGE)
-            outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
+        nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
+//            val inputElems = inputs.map { input -> input.tryReceive().getOrNull() ?: return@Node }
+//            val outputElems = action.invoke(inputElems)
+//            if (outputElems.size != outputs.size) throw IllegalStateException(ERROR_MESSAGE)
+//            outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
         })
     }
 
@@ -88,12 +89,12 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T> terminate(
         name: String,
-        input: List<ReceiveBufferChannel<T>>,
-        action: suspend (T) -> Unit,
+        input: Pipe.Single<T>,
+        action: suspend (Pipe.Single<T>.Producer) -> Unit,
     ) {
-        nodes.add(Node(name, input, emptyList()) {
-            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
-            inputElems.map { action.invoke(it) }
+        nodes.add(Node(name, listOf(input), emptyList()) {
+//            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
+//            inputElems.map { action.invoke(it) }
         })
     }
 

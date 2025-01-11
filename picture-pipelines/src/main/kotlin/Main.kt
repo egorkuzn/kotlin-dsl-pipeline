@@ -1,6 +1,7 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
 import ru.nsu.fit.mmp.pipelinesframework.channel.ReceiveBufferChannel
+import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 import kotlin.time.Duration.Companion.seconds
 
 fun line() = println("-".repeat(30))
@@ -8,32 +9,29 @@ fun line() = println("-".repeat(30))
 fun main() {
     line()
     val workflow = Workflow {
-        val numbers: ReceiveBufferChannel<Int> = produce {
-            (1..10).map {
-                send(it)
-            }
-        }
+        val numbers = Pipe.Single<Int>()
 
-        val symbols = Pipe<String>()
+        val symbols = Pipe.Single<String>()
 
         node(
             name = "Выведи символ 'a' n раз",
-            inputs = listOf(numbers),
-            outputs = listOf(symbols)
-        ) {
-            listOf("a".repeat(it.first()))
+            inputs = numbers,
+            outputs = symbols
+        ) { consumer, producer ->
+
+            //listOf("a".repeat(it.first()))
         }
 
         terminate(
             name = "Принтер с улыбкой",
-            input = listOf(symbols)
+            input = symbols
         ) {
             println("$it)")
         }
 
         terminate(
             name = "Принтер",
-            input = listOf(symbols)
+            input = symbols
         ) {
             println(it)
         }
