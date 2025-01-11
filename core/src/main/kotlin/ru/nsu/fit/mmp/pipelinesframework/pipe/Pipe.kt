@@ -23,6 +23,7 @@ class Pipe<T> {
         }
 
         private fun handleBufferChange(buffer: List<T>){
+            //TODO buffer нужен для логирования
             listeners.forEach {
                 it.invoke(this)
             }
@@ -69,6 +70,7 @@ class Pipe<T> {
     }
 
     fun close() {
+        //TODO Возможно лучше использовать cancel()
         _channel.close()
     }
 }

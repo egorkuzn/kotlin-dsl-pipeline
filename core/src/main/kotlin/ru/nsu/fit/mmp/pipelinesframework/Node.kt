@@ -29,6 +29,7 @@ class Node(
         }
 
         private fun handlePipeContextChange(pipe: Pipe<*>) {
+            //TODO pipe нужен для логирования
             listeners.forEach {
                 it.invoke(this)
             }

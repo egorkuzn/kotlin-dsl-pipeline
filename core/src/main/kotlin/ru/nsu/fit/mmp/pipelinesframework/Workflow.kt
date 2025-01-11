@@ -28,6 +28,7 @@ class Workflow(
         }
 
         private fun handleNodeContextChange(node: Node) {
+            //TODO node нужен для логирования
             listeners.forEach {
                 it.invoke(context)
             }
