@@ -1,4 +1,4 @@
-package ru.nsu.fit.mmp.pipelinesframework.pipe.impl
+package ru.nsu.fit.mmp.pipelinesframework.channel.impl
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -7,9 +7,9 @@ import kotlinx.coroutines.channels.ChannelIterator
 import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.selects.SelectClause1
-import ru.nsu.fit.mmp.pipelinesframework.pipe.ReceivePipe
+import ru.nsu.fit.mmp.pipelinesframework.channel.ReceiveBufferChannel
 
-class ReceivePipeImpl<out E>(private val receiveChannel: ReceiveChannel<E>): ReceivePipe<E> {
+class ReceiveBufferChannelImpl<out E>(private val receiveChannel: ReceiveChannel<E>): ReceiveBufferChannel<E> {
     @DelicateCoroutinesApi
     override val isClosedForReceive: Boolean
         get() = receiveChannel.isClosedForReceive

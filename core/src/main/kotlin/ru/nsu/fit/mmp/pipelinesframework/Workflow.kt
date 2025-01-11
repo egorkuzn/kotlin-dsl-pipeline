@@ -3,9 +3,9 @@ package ru.nsu.fit.mmp.pipelinesframework
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
-import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
-import ru.nsu.fit.mmp.pipelinesframework.pipe.ReceivePipe
-import ru.nsu.fit.mmp.pipelinesframework.pipe.SendPipe
+import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
+import ru.nsu.fit.mmp.pipelinesframework.channel.ReceiveBufferChannel
+import ru.nsu.fit.mmp.pipelinesframework.channel.SendPipe
 import kotlin.coroutines.CoroutineContext
 import kotlin.experimental.ExperimentalTypeInference
 import kotlin.time.Duration
@@ -71,7 +71,7 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T, Q> node(
         name: String,
-        inputs: List<ReceivePipe<T>>,
+        inputs: List<ReceiveBufferChannel<T>>,
         outputs: List<SendPipe<Q>>,
         action: suspend (List<T>) -> List<Q>,
     ) {
@@ -88,7 +88,7 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
      */
     fun <T> terminate(
         name: String,
-        input: List<ReceivePipe<T>>,
+        input: List<ReceiveBufferChannel<T>>,
         action: suspend (T) -> Unit,
     ) {
         nodes.add(Node(name, input, emptyList()) {
@@ -109,12 +109,12 @@ class WorkflowBuilder(override val coroutineContext: CoroutineContext) : Corouti
         return SharedWorkflow(nodes)
     }
 
-    fun <E> Pipe(): Pipe<E> = Pipe.of(Channel<E>())
+    fun <E> Pipe(): BufferChannel<E> = BufferChannel.of(Channel<E>())
 
     @OptIn(ExperimentalTypeInference::class, ExperimentalCoroutinesApi::class)
     fun <E> produce(
         @BuilderInference block: suspend ProducerScope<E>.() -> Unit
-    ): ReceivePipe<E> = ReceivePipe.of(pproduce(block = block))
+    ): ReceiveBufferChannel<E> = ReceiveBufferChannel.of(pproduce(block = block))
 }
 
 fun Workflow(

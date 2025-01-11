@@ -1,8 +1,8 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.DelicateCoroutinesApi
-import ru.nsu.fit.mmp.pipelinesframework.pipe.ReceivePipe
-import ru.nsu.fit.mmp.pipelinesframework.pipe.SendPipe
+import ru.nsu.fit.mmp.pipelinesframework.channel.ReceiveBufferChannel
+import ru.nsu.fit.mmp.pipelinesframework.channel.SendPipe
 
 /**
  * @param name Название ноды
@@ -13,7 +13,7 @@ import ru.nsu.fit.mmp.pipelinesframework.pipe.SendPipe
 @OptIn(DelicateCoroutinesApi::class)
 class Node(
     name: String,
-    val input: List<ReceivePipe<*>>,
+    val input: List<ReceiveBufferChannel<*>>,
     val output: List<SendPipe<*>>,
     val actions: suspend () -> Unit,
 ) {

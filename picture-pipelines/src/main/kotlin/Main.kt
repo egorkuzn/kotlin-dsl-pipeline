@@ -1,6 +1,6 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
-import ru.nsu.fit.mmp.pipelinesframework.pipe.ReceivePipe
+import ru.nsu.fit.mmp.pipelinesframework.channel.ReceiveBufferChannel
 import kotlin.time.Duration.Companion.seconds
 
 fun line() = println("-".repeat(30))
@@ -8,7 +8,7 @@ fun line() = println("-".repeat(30))
 fun main() {
     line()
     val workflow = Workflow {
-        val numbers: ReceivePipe<Int> = produce {
+        val numbers: ReceiveBufferChannel<Int> = produce {
             (1..10).map {
                 send(it)
             }

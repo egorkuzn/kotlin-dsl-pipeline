@@ -1,4 +1,4 @@
-package ru.nsu.fit.mmp.pipelinesframework.pipe
+package ru.nsu.fit.mmp.pipelinesframework.channel
 
 import kotlinx.coroutines.channels.SendChannel
 
