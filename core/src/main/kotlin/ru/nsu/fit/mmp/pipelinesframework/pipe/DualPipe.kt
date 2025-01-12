@@ -5,43 +5,35 @@ import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
 
 
 class DualPipe<T, U>(
-    private val _channelT: BufferChannel<T>,
-    private val _channelU: BufferChannel<U>,
+    private val channelT: BufferChannel<T>,
+    private val channelU: BufferChannel<U>,
 ) {
 
     inner class Consumer(private val coroutineScope: CoroutineScope) {
-        suspend fun listen(action: (T, U) -> Unit) {
-            val jobs = coroutineScope.launch {
-                val valueT = async { _channelT.receive() }
-                val valueU = async { _channelU.receive() }
-
-                action.invoke(valueT.await(), valueU.await())
-            }
-
-            jobs.join()
+        suspend fun recive(): Pair<T, U> {
+            return Pair(channelT.receive(), channelU.receive())
         }
 
-        @OptIn(DelicateCoroutinesApi::class)
         fun onListener(action: (T, U) -> Unit) {
             coroutineScope.launch {
-                while (!_channelT.isClosedForReceive && !_channelU.isClosedForSend) {
-                    val valueT = async { _channelT.receive() }
-                    val valueU = async { _channelU.receive() }
-
-                    action.invoke(valueT.await(), valueU.await())
+                while (true) {
+                    val valueT = channelT.tryReceive().getOrNull()
+                    val valueU = channelU.tryReceive().getOrNull()
+                    if (valueT != null && valueU != null) {
+                        action(valueT, valueU)
+                    } else {
+                        break
+                    }
                 }
             }
         }
     }
 
-    inner class Producer(private val coroutineScope: CoroutineScope) {
+    inner class Producer {
+
         suspend fun commit(value1: T, value2: U) {
-            val jobs = coroutineScope.launch {
-                val valueT = async { _channelT.send(value1) }
-                val valueU = async { _channelU.send(value2) }
-                awaitAll(valueT, valueU)
-            }
-            jobs.join()
+            channelT.send(value1)
+            channelU.send(value2)
         }
     }
 }

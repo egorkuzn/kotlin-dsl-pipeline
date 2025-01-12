@@ -7,6 +7,8 @@ interface BufferChannel<E> : Channel<E>, ReceiveBufferChannel<E>, SendBufferChan
     companion object {
         fun <E> of(): BufferChannel<E> = BufferChannelImpl()
     }
+
     fun bufferElements(): List<E>
+
     fun onListenerBuffer(listener: (List<E>) -> Unit)
 }

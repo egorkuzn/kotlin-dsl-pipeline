@@ -37,7 +37,7 @@ fun main() {
             input = symbols
         ) { consumer ->
 
-            consumer.listen { println("$it)") }
+            println(consumer.recive())
             println("www2")
 
         }

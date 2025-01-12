@@ -1,7 +1,6 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.*
-import ru.nsu.fit.mmp.pipelinesframework.Node.Context
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 
 class Workflow(
@@ -46,7 +45,9 @@ class Workflow(
                 coroutineScope
                     .launch {
                         launch {
-                            context.onListener { println("Node '${node.name}' context changed: $it") }
+                            context.onListener {
+                                println("Node '${node.name}' context changed: $it")
+                            }
                         }
                         node.actions.invoke(coroutineScope)
                     })
@@ -92,7 +93,7 @@ class WorkflowBuilder {
         action: suspend (Pipe<T>.Consumer, Pipe<Q>.Producer) -> Unit
     ) {
         nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
-            action.invoke(inputs.Consumer(it), outputs.Producer(it))
+            action.invoke(inputs.Consumer(it), outputs.Producer())
         })
     }
 
@@ -102,7 +103,7 @@ class WorkflowBuilder {
         action: suspend (Pipe<T>.Producer) -> Unit,
     ) {
         nodes.add(Node(name, emptyList(), listOf(output)) {
-            action.invoke(output.Producer(it))
+            action.invoke(output.Producer())
         })
     }
 
