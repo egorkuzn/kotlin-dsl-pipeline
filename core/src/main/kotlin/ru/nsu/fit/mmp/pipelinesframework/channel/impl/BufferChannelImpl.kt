@@ -3,13 +3,17 @@ package ru.nsu.fit.mmp.pipelinesframework.channel.impl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ChannelIterator
+import kotlinx.coroutines.channels.ChannelResult
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.selects.SelectClause1
 import kotlinx.coroutines.selects.SelectClause2
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
 
 class BufferChannelImpl<E> : BufferChannel<E> {
     private val channel = Channel<E>(Channel.BUFFERED)
+    private val listeners = mutableListOf<(List<E>) -> Unit>()
 
     private val buffer = mutableListOf<E>()
     private val lock = Any()
@@ -17,6 +21,18 @@ class BufferChannelImpl<E> : BufferChannel<E> {
     override fun bufferElements(): List<E> {
         synchronized(lock) {
             return buffer.toList()
+        }
+    }
+
+    override fun onListenerBuffer(listener: (List<E>) -> Unit) {
+        synchronized(listeners) {
+            listeners.add(listener)
+        }
+    }
+
+    private fun notifyListeners() {
+        synchronized(listeners) {
+            listeners.forEach { it(buffer) }
         }
     }
 
@@ -45,9 +61,10 @@ class BufferChannelImpl<E> : BufferChannel<E> {
 
     override fun close(cause: Throwable?): Boolean {
         synchronized(lock) {
-            buffer.clear() // Очищаем буфер при закрытии канала
+            buffer.clear()
+            notifyListeners()
         }
-       return channel.close(cause)
+        return channel.close(cause)
     }
 
     override fun invokeOnClose(handler: (cause: Throwable?) -> Unit) = channel.invokeOnClose(handler)
@@ -56,17 +73,20 @@ class BufferChannelImpl<E> : BufferChannel<E> {
 
     override suspend fun receive(): E {
         val element = channel.receive()
+
         synchronized(lock) {
             buffer.remove(element)
+            notifyListeners()
         }
         return element
     }
 
-    override suspend fun receiveCatching(): ChannelResult<E>{
+    override suspend fun receiveCatching(): ChannelResult<E> {
         val result = channel.receiveCatching()
         result.getOrNull()?.let { element ->
             synchronized(lock) {
                 buffer.remove(element)
+                notifyListeners()
             }
         }
         return result
@@ -77,6 +97,7 @@ class BufferChannelImpl<E> : BufferChannel<E> {
         result.getOrNull()?.let { element ->
             synchronized(lock) {
                 buffer.remove(element)
+                notifyListeners()
             }
         }
         return result
@@ -86,7 +107,8 @@ class BufferChannelImpl<E> : BufferChannel<E> {
         val result = channel.trySend(element)
         if (result.isSuccess) {
             synchronized(lock) {
-                buffer.add(element) // Добавляем элемент в буфер при успешной отправке
+                buffer.add(element)
+                notifyListeners()
             }
         }
         return result
@@ -94,7 +116,8 @@ class BufferChannelImpl<E> : BufferChannel<E> {
 
     override suspend fun send(element: E) {
         synchronized(lock) {
-            buffer.add(element) // Добавляем элемент в буфер перед отправкой
+            buffer.add(element)
+            notifyListeners()
         }
         channel.send(element)
     }

@@ -8,8 +8,31 @@ class Workflow(
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
     private val jobs = mutableListOf<Job>()
+    private val context = Context()
 
-    // -----> [x] -->
+
+    inner class Context {
+        private val listeners = mutableListOf<(Context) -> Unit>()
+
+        init {
+            nodes.forEach { node ->
+                node.context.onListener {
+                    handleNodeContextChange(node)
+                }
+            }
+        }
+
+        fun onListener(listener: (Context) -> Unit) {
+            listeners.add(listener)
+        }
+
+        private fun handleNodeContextChange(node: Node) {
+            //TODO node нужен для логирования
+            listeners.forEach {
+                it.invoke(context)
+            }
+        }
+    }
 
     /**
      * Довольно плохое isAnyChannelClosed
@@ -18,10 +41,16 @@ class Workflow(
      */
     fun start() {
         nodes.forEach { node ->
-            jobs.add(coroutineScope.launch {
-//                while (!node.isAnyChannelClosed()) node.actions.invoke()
-                node.actions.invoke()
-            })
+            jobs.add(
+                coroutineScope
+                    .launch {
+                        launch {
+                            context.onListener {
+                                println("Node '${node.name}' context changed: $it")
+                            }
+                        }
+                        node.actions.invoke(coroutineScope)
+                    })
         }
     }
 
@@ -59,28 +88,22 @@ class WorkflowBuilder {
      */
     fun <T, Q> node(
         name: String,
-        inputs: Pipe.Single<T>,
-        outputs: Pipe.Single<Q>,
-        action: suspend (Pipe.Single<T>.Consumer, Pipe.Single<Q>.Producer) -> Unit
+        inputs: Pipe<T>,
+        outputs: Pipe<Q>,
+        action: suspend (Pipe<T>.Consumer, Pipe<Q>.Producer) -> Unit
     ) {
         nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
-            action.invoke(inputs.Consumer(), outputs.Producer())
-//            val inputElems = inputs.map { input -> input.tryReceive().getOrNull() ?: return@Node }
-//            val outputElems = action.invoke(inputElems)
-//            if (outputElems.size != outputs.size) throw IllegalStateException(ERROR_MESSAGE)
-//            outputs.mapIndexed { index, output -> output.send(outputElems[index]) }
+            action.invoke(inputs.Consumer(it), outputs.Producer())
         })
     }
 
     fun <T> initial(
         name: String,
-        output: Pipe.Single<T>,
-        action: suspend (Pipe.Single<T>.Producer) -> Unit,
+        output: Pipe<T>,
+        action: suspend (Pipe<T>.Producer) -> Unit,
     ) {
         nodes.add(Node(name, emptyList(), listOf(output)) {
             action.invoke(output.Producer())
-//            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
-//            inputElems.map { action.invoke(it) }
         })
     }
 
@@ -89,13 +112,11 @@ class WorkflowBuilder {
      */
     fun <T> terminate(
         name: String,
-        input: Pipe.Single<T>,
-        action: suspend (Pipe.Single<T>.Consumer) -> Unit,
+        input: Pipe<T>,
+        action: suspend (Pipe<T>.Consumer) -> Unit,
     ) {
         nodes.add(Node(name, listOf(input), emptyList()) {
-            action.invoke(input.Consumer())
-//            val inputElems = input.map { it.tryReceive().getOrNull() ?: return@Node }
-//            inputElems.map { action.invoke(it) }
+            action.invoke(input.Consumer(it))
         })
     }
 
@@ -111,12 +132,6 @@ class WorkflowBuilder {
         return SharedWorkflow(nodes)
     }
 
-//    fun <E> Pipe(): BufferChannel<E> = BufferChannel.of(Channel<E>())
-
-//    @OptIn(ExperimentalTypeInference::class, ExperimentalCoroutinesApi::class)
-//    fun <E> produce(
-//        @BuilderInference block: suspend ProducerScope<E>.() -> Unit
-//    ): ReceiveBufferChannel<E> = ReceiveBufferChannel.of(pproduce(block = block))
 }
 
 fun Workflow(
