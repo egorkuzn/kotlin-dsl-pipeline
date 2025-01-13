@@ -37,7 +37,7 @@ fun main() {
             input = symbols
         ) { consumer ->
 
-            println(consumer.recive())
+            println(consumer.receive())
             println("www2")
 
         }

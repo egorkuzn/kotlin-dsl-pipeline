@@ -32,7 +32,7 @@ class Pipe<T> {
     inner class Consumer(private val coroutineScope: CoroutineScope) {
         private val receiveChannel = channel
 
-        suspend fun recive(): T {
+        suspend fun receive(): T {
             return channel.receive()
         }
 
