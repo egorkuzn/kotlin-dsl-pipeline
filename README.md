@@ -78,10 +78,10 @@ Workflow(
 #### Компоненты
 ##### sharedWorkflow
 
-Для создания шаблонов конвейеров (`SharedWorkflow`) предлагается использовать функции, в параметрах которых обозначаются переиспользуемые компоненты, а возращаемым результатом будет `Workflow`
+Для создания шаблонов конвейеров (`SharedWorkflow`) предлагается использовать функции, в параметрах которых обозначаются переиспользуемые компоненты, а возращаемым результатом будет `SharedWorkflow`
 ```kotlin
-fun mySharedWorkflow(input: Pipe<Int>, output: Pipe<Int>, firstParam: Int): Workflow =  
-    Workflow {  
+fun mySharedWorkflow(input: Pipe<Int>, output: Pipe<Int>, firstParam: Int): SharedWorkflow =  
+    SharedWorkflow {  
   
         node(  
             name = "Пример",  
