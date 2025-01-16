@@ -5,20 +5,19 @@ import kotlinx.coroutines.Dispatchers
 import ru.nsu.fit.mmp.pipelinesframework.Node
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 
+/**
+ * Класс для построения DSL конвейерной обработки
+ */
 class WorkflowBuilder {
     private val nodes = mutableListOf<Node>()
 
-    companion object {
-        const val ERROR_MESSAGE = """
-            Количество элементов, которые возвращает action, не соответсвует количеству каналов-получателей
-        """
-    }
-
     /**
-     * Многие-ко-многим
-     * А -> x
-     * B -> x
-     * C -> xxxx
+     * Конструкция DSL, создающая узел обработки [Node]
+     *
+     * @param name Название узла
+     * @param inputs Входной канал [Pipe] с данными типа T
+     * @param outputs Выходной канал [Pipe] с данными типа Q
+     * @param action Лямбда-функция, описывающая логику обработки данных узлом
      */
     fun <T, Q> node(
         name: String,
@@ -31,6 +30,13 @@ class WorkflowBuilder {
         })
     }
 
+    /**
+     * Конструкция DSL, создающая начальный узел обработки [Node] без входных каналов [Pipe]
+     *
+     * @param name Название узла
+     * @param output Выходной канал [Pipe] с данными типа T
+     * @param action Лямбда-функция, описывающая логику обработки данных узлом
+     */
     fun <T> initial(
         name: String,
         output: Pipe<T>,
@@ -42,7 +48,11 @@ class WorkflowBuilder {
     }
 
     /**
-     * Вывод
+     * Конструкция DSL, создающая конечный узел обработки [Node] без выходных каналов [Pipe]
+     *
+     * @param name Название узла
+     * @param input Входной канал [Pipe] с данными типа T
+     * @param action Лямбда-функция, описывающая логику обработки данных узлом
      */
     fun <T> terminate(
         name: String,
@@ -54,20 +64,44 @@ class WorkflowBuilder {
         })
     }
 
+    /**
+     * Конструкция DSL, добавляющая в конвейер узлы [Node] из общего конвейера [SharedWorkflow]
+     *
+     * @param sharedWorkflow Общий конвейер [SharedWorkflow]
+     */
     fun sharedWorkflow(sharedWorkflow: () -> SharedWorkflow) {
         sharedWorkflow.invoke().getNodes().forEach(nodes::add)
     }
 
+
+    /**
+     * Создание экземпляра [Workflow] с заданным диспетчером корутин [CoroutineDispatcher]
+     *
+     * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для управления асинхронными задачами
+     * @return Новый экземпляр конвейера [Workflow]
+     */
     fun build(dispatcher: CoroutineDispatcher): Workflow {
         return Workflow(nodes, dispatcher)
     }
 
+    /**
+     * Создание экземпляра общего конвейера [SharedWorkflow]
+     *
+     * @return Новый экземпляр общего конвейера [SharedWorkflow]
+     */
     fun buildSharedWorkflow(): SharedWorkflow {
         return SharedWorkflow(nodes)
     }
 
 }
 
+/**
+ * Открывающая DSL конструкция [WorkflowBuilder]
+ *
+ * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для управления асинхронными задачами (по умолчанию [Dispatchers.Default])
+ * @param init Контент конвейера
+ * @return Новый экземпляр конвейера [Workflow]
+ */
 fun Workflow(
     dispatcher: CoroutineDispatcher = Dispatchers.Default, init: WorkflowBuilder.() -> Unit,
 ): Workflow {

@@ -12,7 +12,7 @@ fun line() = println("-".repeat(30))
 fun main() {
     line()
     val nodesCut = SharedWorkflow() {
-        node.
+
     }
     val workflow = Workflow {
         val numbers = Pipe<Int>()

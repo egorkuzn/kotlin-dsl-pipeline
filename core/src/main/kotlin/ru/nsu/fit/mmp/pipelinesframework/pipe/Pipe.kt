@@ -5,9 +5,9 @@ import kotlinx.coroutines.launch
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
 
 /**
- * Генерик-класс, представляющий односторонний канал для асинхронной передачи данных.
+ * Класс, представляющий односторонний канал для асинхронной передачи данных
  *
- * @param T Тип данных, передаваемых через pipe.
+ * @param T Тип данных, передаваемых через канал
  */
 class Pipe<T> {
     private val channel = BufferChannel.of<T>();
@@ -15,7 +15,7 @@ class Pipe<T> {
 
     /**
      * Класс, предоставляющий контекст Pipe
-     * Используется для управления слушателями и обработки событий, связанных с буфером.
+     * Используется для управления слушателями и обработки событий, связанных с буфером
      */
     inner class Context {
         private val listeners = mutableListOf<(Context) -> Unit>()
@@ -27,18 +27,18 @@ class Pipe<T> {
         }
 
         /**
-         * Регистрирует нового слушателя для реагирования на события контекста.
+         * Регистрация нового слушателя событий контекста
          *
-         * @param action Действие, которое выполняется при изменении контекста.
+         * @param action Действие, которое выполняется при изменении контекста
          */
         fun onListener(action: (context: Context) -> Unit) {
             listeners.add(action)
         }
 
         /**
-         * Обрабатывает изменения в буфере и уведомляет всех слушателей.
+         * Обработчик изменений в буфере и уведомляет всех слушателей
          *
-         * @param buffer Текущее состояние буфера.
+         * @param buffer Текущее состояние буфера
          */
         private fun handleBufferChange(buffer: List<T>) {
             //TODO buffer нужен для логирования
@@ -49,27 +49,27 @@ class Pipe<T> {
     }
 
     /**
-     * Класс, представляющий потребителя (consumer) данных.
+     * Класс, представляющий потребителя данных [T] из канала [Pipe]
      *
-     * @param coroutineScope [CoroutineScope], в рамках которого выполняются операции.
+     * @param coroutineScope [CoroutineScope], в рамках которого выполняются операции
      */
     inner class Consumer(private val coroutineScope: CoroutineScope) {
         private val receiveChannel = channel
 
         /**
-         * Получает следующий элемент из канала.
+         * Получение следующего элемента из канала [Pipe]
          *
-         * @return Следующий элемент из канала.
-         * @throws Exception В случае ошибки получения.
+         * @return Следующий элемент из канала
+         * @throws Exception В случае ошибки получения
          */
         suspend fun receive(): T {
             return channel.receive()
         }
 
         /**
-         * Регистрирует слушателя, который будет обрабатывать каждый полученный элемент.
+         * Регистрация слушателя, который будет обрабатывать каждый полученный элемент
          *
-         * @param action Действие, выполняемое для каждого элемента.
+         * @param action Действие, выполняемое для каждого элемента
          */
         fun onListener(action: suspend (T) -> Unit) {
             coroutineScope.launch {
@@ -80,10 +80,10 @@ class Pipe<T> {
         }
 
         /**
-         * Объединяет этого потребителя с другим, создавая двойного потребителя.
+         * Объединение текущего потребителя с другим, создавая двойного потребителя [DualPipe.Consumer]
          *
-         * @param other Другой потребитель для объединения.
-         * @return Новый экземпляр [DualPipe.Consumer].
+         * @param other Другой потребитель [Consumer] для объединения
+         * @return Новый экземпляр [DualPipe.Consumer]
          */
         operator fun <U> plus(other: Pipe<U>.Consumer): DualPipe<T, U>.Consumer {
             return DualPipe(channel, other.receiveChannel).Consumer(coroutineScope)
@@ -91,16 +91,16 @@ class Pipe<T> {
     }
 
     /**
-     * Класс, представляющий производителя (producer) данных.
+     * Класс, представляющий производителя данных [T] в канал [Pipe]
      */
     inner class Producer {
         private val sendChannel = channel
 
         /**
-         * Отправляет элемент в канал.
+         * Отправка элемента в канал [Pipe]
          *
-         * @param value Элемент для отправки.
-         * @throws Exception В случае ошибки отправки.
+         * @param value Элемент типа [T] для отправки
+         * @throws Exception В случае ошибки отправки
          */
         suspend fun commit(value: T) {
             //TODO Обработка ошибки отправки
@@ -108,7 +108,7 @@ class Pipe<T> {
         }
 
         /**
-         * Объединяет этого производителя с другим, создавая двойного производителя.
+         * Объединение текущего производителя с другим, создавая двойного производителя [DualPipe.Producer]
          *
          * @param other Другой производитель для объединения.
          * @return Новый экземпляр [DualPipe.Producer].
@@ -119,7 +119,7 @@ class Pipe<T> {
     }
 
     /**
-     * Закрывает pipe и освобождает все связанные ресурсы.
+     * Освобождение ресурсов и закрытие канала
      */
     fun close() {
         channel.close()

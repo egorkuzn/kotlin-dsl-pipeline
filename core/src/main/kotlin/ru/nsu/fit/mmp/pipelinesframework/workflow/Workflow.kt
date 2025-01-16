@@ -3,6 +3,13 @@ package ru.nsu.fit.mmp.pipelinesframework.workflow
 import kotlinx.coroutines.*
 import ru.nsu.fit.mmp.pipelinesframework.Node
 
+/**
+ * Класс, представляющий конвейер, состоящий из множества узлов [Node]
+ * Управляет их взаимодействием, обработкой контекста и асинхронным выполнением действий
+ *
+ * @param nodes Список узлов [Node]
+ * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для выполнения действий в рамках конвейера
+ */
 class Workflow(
     private val nodes: List<Node>, dispatcher: CoroutineDispatcher,
 ) {
@@ -10,7 +17,10 @@ class Workflow(
     private val jobs = mutableListOf<Job>()
     private val context = Context()
 
-
+    /**
+     * Вложенный класс, представляющий контекст [Workflow]
+     * Управляет слушателями и реагирует на изменения в контексте узлов.
+     */
     inner class Context {
         private val listeners = mutableListOf<(Context) -> Unit>()
 
@@ -22,10 +32,20 @@ class Workflow(
             }
         }
 
+        /**
+         * Регистрация слушателя, который будет реагировать на изменения контекста [Workflow]
+         *
+         * @param listener Действие, выполняемое при изменении контекста.
+         */
         fun onListener(listener: (Context) -> Unit) {
             listeners.add(listener)
         }
 
+        /**
+         * Обработчик изменения контекста в указанном узле
+         *
+         * @param node Узел, в контексте которого произошло изменение
+         */
         private fun handleNodeContextChange(node: Node) {
             //TODO node нужен для логирования
             listeners.forEach {
@@ -35,9 +55,8 @@ class Workflow(
     }
 
     /**
-     * Довольно плохое isAnyChannelClosed
-     * Помогает, но плохо решает проблему, так как всё равно стреляет ошибка,
-     * которую я интерпретирую, что происходит попытка отправки.
+     * Запуск конвейера
+     * Для каждого узла создается корутина, в которой выполняются его действия и обработка контекста
      */
     fun start() {
         nodes.forEach { node ->
@@ -54,6 +73,9 @@ class Workflow(
         }
     }
 
+    /**
+     * Остановка конвейера
+     */
     suspend fun stop() {
         nodes.forEach { it.destroy() }
 
