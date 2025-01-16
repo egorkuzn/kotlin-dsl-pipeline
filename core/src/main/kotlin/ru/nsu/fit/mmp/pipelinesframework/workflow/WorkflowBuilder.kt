@@ -25,9 +25,7 @@ class WorkflowBuilder {
         outputs: Pipe<Q>,
         action: suspend (Pipe<T>.Consumer, Pipe<Q>.Producer) -> Unit
     ) {
-        nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
-            action.invoke(inputs.Consumer(it), outputs.Producer())
-        })
+        nodes.add(Node.Input1Output1(name, inputs, outputs, action))
     }
 
     /**
@@ -42,9 +40,7 @@ class WorkflowBuilder {
         output: Pipe<T>,
         action: suspend (Pipe<T>.Producer) -> Unit,
     ) {
-        nodes.add(Node(name, emptyList(), listOf(output)) {
-            action.invoke(output.Producer())
-        })
+        nodes.add(Node.Output1(name, output, action))
     }
 
     /**
@@ -59,9 +55,7 @@ class WorkflowBuilder {
         input: Pipe<T>,
         action: suspend (Pipe<T>.Consumer) -> Unit,
     ) {
-        nodes.add(Node(name, listOf(input), emptyList()) {
-            action.invoke(input.Consumer(it))
-        })
+        nodes.add(Node.Input1(name, input, action))
     }
 
     /**

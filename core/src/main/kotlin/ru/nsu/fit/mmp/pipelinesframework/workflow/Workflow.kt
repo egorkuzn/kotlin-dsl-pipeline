@@ -60,16 +60,16 @@ class Workflow(
      */
     fun start() {
         nodes.forEach { node ->
-            jobs.add(
-                coroutineScope
-                    .launch {
-                        launch {
-                            context.onListener {
-                                println("Node '${node.name}' context changed: $it")
-                            }
-                        }
-                        node.actions.invoke(coroutineScope)
-                    })
+            jobs.add(node.start(coroutineScope))
+//                coroutineScope
+//                    .launch {
+//                        launch {
+//                            context.onListener {
+//                                println("Node '${node.name}' context changed: $it")
+//                            }
+//                        }
+//                        node
+//                    })
         }
     }
 

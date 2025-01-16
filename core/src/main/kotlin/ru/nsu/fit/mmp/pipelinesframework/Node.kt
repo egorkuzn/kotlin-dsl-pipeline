@@ -1,6 +1,8 @@
 package ru.nsu.fit.mmp.pipelinesframework
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 
 
@@ -13,11 +15,11 @@ import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
  * @param actions Лямбда-функция, определяющая действия, выполняемые узлом.
  * @see Pipe
  */
-class Node(
+sealed class Node(
     val name: String,
     private val input: List<Pipe<*>>,
     private val output: List<Pipe<*>>,
-    val actions: suspend (coroutineScope: CoroutineScope) -> Unit,
+    //  private val actions: suspend (coroutineScope: CoroutineScope) -> Unit,
 ) {
     val context: Context = Context()
 
@@ -35,7 +37,6 @@ class Node(
                 }
             }
         }
-
 
         /**
          * Обрабатывает изменения контекста в переданном канале.
@@ -58,6 +59,48 @@ class Node(
             listeners.add(action)
         }
     }
+
+    class Input1Output1<T, U>(
+        name: String,
+        private val input: Pipe<T>,
+        private val output: Pipe<U>,
+        private val  actions: suspend (Pipe<T>.Consumer, Pipe<U>.Producer) -> Unit
+    ) : Node(name, listOf(input), listOf(output)) {
+
+        override fun start(coroutineScope: CoroutineScope): Job {
+            return coroutineScope.launch {
+                actions.invoke(input.Consumer(coroutineScope), output.Producer())
+            }
+        }
+    }
+
+    class Input1<T>(
+        name: String,
+        private val input: Pipe<T>,
+        private val  actions: suspend (Pipe<T>.Consumer) -> Unit
+    ) : Node(name, listOf(input), emptyList()) {
+
+        override fun start(coroutineScope: CoroutineScope): Job {
+            return coroutineScope.launch {
+                actions.invoke(input.Consumer(coroutineScope))
+            }
+        }
+    }
+
+    class Output1<U>(
+        name: String,
+        private val output: Pipe<U>,
+        private val actions: suspend (Pipe<U>.Producer) -> Unit
+    ) : Node(name, emptyList(), listOf(output)) {
+
+        override fun start(coroutineScope: CoroutineScope): Job {
+            return coroutineScope.launch {
+                actions.invoke(output.Producer())
+            }
+        }
+    }
+
+    abstract fun start(coroutineScope: CoroutineScope): Job
 
     /**
      * Уничтожает узел, закрывая все связанные каналы.
