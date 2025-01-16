@@ -11,6 +11,12 @@ import kotlinx.coroutines.selects.SelectClause1
 import kotlinx.coroutines.selects.SelectClause2
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
 
+/**
+ * Реализация интерфейса [BufferChannel], обеспечивающая буферизованный канал для передачи данных
+ * Реализация на основе [MutableList] и контроля атомарности на основе [synchronized]
+ *
+ * @param E Тип элементов, передаваемых через канал.
+ */
 class BufferChannelImpl<E> : BufferChannel<E> {
     private val channel = Channel<E>(Channel.BUFFERED)
     private val listeners = mutableListOf<(List<E>) -> Unit>()

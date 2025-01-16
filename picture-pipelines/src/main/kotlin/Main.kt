@@ -3,12 +3,17 @@ package ru.nsu.fit.mmp.pipelinesframework
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
+import ru.nsu.fit.mmp.pipelinesframework.workflow.SharedWorkflow
+import ru.nsu.fit.mmp.pipelinesframework.workflow.Workflow
 import kotlin.time.Duration.Companion.seconds
 
 fun line() = println("-".repeat(30))
 
 fun main() {
     line()
+    val nodesCut = SharedWorkflow() {
+
+    }
     val workflow = Workflow {
         val numbers = Pipe<Int>()
 
