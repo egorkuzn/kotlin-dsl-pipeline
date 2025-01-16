@@ -22,7 +22,7 @@ class CycleSearcherTest: StringSpec({
         )
         val expected = true
 
-        val actual = CycleSearcherUtil.isConnected(a, b)
+        val actual = CycleSearcherUtil().isConnected(a, b)
 
         actual shouldBe expected
     }
@@ -44,7 +44,7 @@ class CycleSearcherTest: StringSpec({
         )
         val expected = false
 
-        val actual = CycleSearcherUtil.isConnected(a, b)
+        val actual = CycleSearcherUtil().isConnected(a, b)
 
         actual shouldBe expected
     }
@@ -65,8 +65,8 @@ class CycleSearcherTest: StringSpec({
             actions = { }
         )
 
-        CycleSearcherUtil.isContainsCycle(a, emptyList(), b) shouldBe true
-        CycleSearcherUtil.isContainsCycle(listOf(a, b)) shouldBe true
+        CycleSearcherUtil().getCycleChain(a, emptyList(), b).isNotEmpty() shouldBe true
+        CycleSearcherUtil().isContainsCycle(listOf(a, b)) shouldBe true
     }
 
     "Существует цикл | A -> B -> C" {
@@ -92,7 +92,7 @@ class CycleSearcherTest: StringSpec({
             actions = { }
         )
 
-        CycleSearcherUtil.isContainsCycle(a, listOf(b), c) shouldBe true
-        CycleSearcherUtil.isContainsCycle(listOf(a, b, c)) shouldBe true
+        CycleSearcherUtil().getCycleChain(a, listOf(b), c).isNotEmpty() shouldBe true
+        CycleSearcherUtil().isContainsCycle(listOf(a, b, c)) shouldBe true
     }
 })
