@@ -11,8 +11,8 @@ import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
  */
 class Node(
     val name: String,
-    private val input: List<Pipe<*>>,
-    private val output: List<Pipe<*>>,
+    val input: List<Pipe<*>>,
+    val output: List<Pipe<*>>,
     val actions: suspend (coroutineScope: CoroutineScope) -> Unit,
 ) {
     val context: Context = Context()
