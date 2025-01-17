@@ -5,7 +5,11 @@ import kotlinx.coroutines.runBlocking
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 import ru.nsu.fit.mmp.pipelinesframework.workflow.SharedWorkflow
 import ru.nsu.fit.mmp.pipelinesframework.workflow.Workflow
+import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
 import kotlin.time.Duration.Companion.seconds
+
 
 fun line() = println("-".repeat(30))
 
@@ -15,43 +19,96 @@ fun main() {
 
     }
     val workflow = Workflow {
-        val numbers = Pipe<Int>()
 
-        val symbols = Pipe<String>()
+        val partImage = Pipe<BufferedImage>()
+        val partImageChangeable = Pipe<BufferedImage>()
 
-        node(
-            name = "Выведи символ 'a' n раз",
-            inputs = numbers,
-            outputs = symbols
-        ) { consumer, producer ->
-            consumer.onListener { producer.commit("a".repeat(it)) }
-            println("www")
+        val inputDir = File("") //добавить путь до папки
+        val outputDir = File("") //добавить путь до папки
+
+        val imageFiles = inputDir.listFiles { file ->
+            file.extension in listOf("jpg", "jpeg", "png")
         }
 
+        node(
+            name = "Rotated180",
+            inputs = partImage,
+            outputs = partImageChangeable
+        ) { consumer, producer ->
+            consumer.onListener { producer.commit(EditImage.rotateByDegrees(it, 180.0)) }
+        }
+
+        node(
+                name = "Rotated90",
+                inputs = partImage,
+                outputs = partImageChangeable
+        ) { consumer, producer ->
+            consumer.onListener { producer.commit(EditImage.rotateByDegrees(it, 90.0)) }
+        }
+
+        node(
+                name = "Rotated270",
+                inputs = partImage,
+                outputs = partImageChangeable
+        ) { consumer, producer ->
+            consumer.onListener { producer.commit(EditImage.rotateByDegrees(it, 270.0)) }
+        }
+
+        node(
+                name = "Grayscale",
+                inputs = partImage,
+                outputs = partImageChangeable
+        ) { consumer, producer ->
+            consumer.onListener { producer.commit(EditImage.convertGrayScale(it)) }
+        }
+
+        node(
+                name = "Threshold method (with a given threshold)",
+                inputs = partImage,
+                outputs = partImageChangeable
+        ) { consumer, producer ->
+            consumer.onListener { producer.commit(EditImage.thresholdImage(it, 100)) }
+        }
+
+        node(
+                name = "Threshold method",
+                inputs = partImage,
+                outputs = partImageChangeable
+        ) { consumer, producer ->
+            consumer.onListener { producer.commit(EditImage.thresholdImage(it)) }
+        }
+
+
+
         initial(
-            name = "Поток чисел 1",
-            output = numbers
+            name = "Поток исходных изображений",
+            output = partImage
         ) { producer ->
-            (1..10).map {
-                producer.commit(it)
+            for (file in imageFiles) {
+                val image: BufferedImage = ImageIO.read(file)
+                producer.commit(image.getSubimage(0, 0, image.width / 2, image.height))
             }
         }
 
-        terminate(
-            name = "Принтер с улыбкой",
-            input = symbols
-        ) { consumer ->
-
-            println(consumer.receive())
-            println("www2")
-
-        }
 
         terminate(
-            name = "Принтер",
-            input = symbols
+            name = "Поток изменных изображений",
+            input = partImageChangeable
         ) { consumer ->
-            consumer.onListener { println("Принтер $it)") }
+            val img1 = consumer.receive()
+            val img2 = consumer.receive()
+
+            val width = img1.width + img2.width
+            val height = maxOf(img1.height, img2.height)
+
+            val mergedImage = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+            val g2d = mergedImage.createGraphics()
+
+            g2d.drawImage(img1, 0, 0, null)
+            g2d.drawImage(img2, img1.width, 0, null)
+
+            g2d.dispose()
+            ImageIO.write(mergedImage, "jpg", outputDir)
         }
     }
 
@@ -63,21 +120,5 @@ fun main() {
     }
 
     line()
-
-//    val channel = BufferChannel.of<Int>()
-//    runBlocking {
-//        channel.send(10)
-//        channel.send(30)
-//
-//        channel.send(20)
-//        channel.send(30)
-//        channel.send(30)
-//
-//       channel.bufferElements().forEach(::println)
-//
-//        for (p in channel) {
-//            println("element: $p")
-//        }
-//    }
 }
 
