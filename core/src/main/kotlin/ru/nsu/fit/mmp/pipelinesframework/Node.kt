@@ -19,7 +19,6 @@ sealed class Node(
     val name: String,
     private val input: List<Pipe<*>>,
     private val output: List<Pipe<*>>,
-    //  private val actions: suspend (coroutineScope: CoroutineScope) -> Unit,
 ) {
     val context: Context = Context()
     internal var isStart = false
@@ -72,8 +71,19 @@ sealed class Node(
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
+
+            val costumer = input.Consumer(coroutineScope)
+                .also {
+                        println("$name read $it")
+                      }
+
+          val producer = output.Producer()
+              .also {
+                        println("$name read $it")
+                    }
+
             job = coroutineScope.launch {
-                actions.invoke(input.Consumer(coroutineScope), output.Producer())
+                actions.invoke(costumer, producer)
             }
         }
     }
@@ -87,8 +97,13 @@ sealed class Node(
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
+
+            val costumer = input.Consumer(coroutineScope)
+            costumer.onListenerUI {
+                println("$name read $it")
+            }
             job = coroutineScope.launch {
-                actions.invoke(input.Consumer(coroutineScope))
+                actions.invoke(costumer)
             }
         }
     }
@@ -102,8 +117,14 @@ sealed class Node(
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
+
+            val producer = output.Producer()
+            producer.onListenerUI {
+                println("$name write $it")
+            }
+
             job = coroutineScope.launch {
-                actions.invoke(output.Producer())
+                actions.invoke(producer)
             }
         }
     }

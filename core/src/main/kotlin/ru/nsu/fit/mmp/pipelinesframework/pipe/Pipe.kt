@@ -55,7 +55,18 @@ class Pipe<T> {
      */
     inner class Consumer(private val coroutineScope: CoroutineScope) {
         private val receiveChannel = channel
+        private val listeners = mutableListOf<(T) -> Unit>()
 
+        fun onListenerUI(action: (value: T) -> Unit) {
+            listeners.add(action)
+        }
+
+
+        private fun handleBufferChange(value: T) {
+            listeners.forEach {
+                it.invoke(value)
+            }
+        }
         /**
          * Получение следующего элемента из канала [Pipe]
          *
@@ -63,7 +74,7 @@ class Pipe<T> {
          * @throws Exception В случае ошибки получения
          */
         suspend fun receive(): T {
-            return channel.receive()
+            return channel.receive().also { handleBufferChange(it) }
         }
 
         /**
@@ -74,7 +85,7 @@ class Pipe<T> {
         fun onListener(action: suspend (T) -> Unit) {
             coroutineScope.launch {
                 for (p in channel) {
-                    action(p)
+                    action(p).also { handleBufferChange(p) }
                 }
             }
         }
@@ -95,6 +106,18 @@ class Pipe<T> {
      */
     inner class Producer {
         private val sendChannel = channel
+        private val listeners = mutableListOf<(T) -> Unit>()
+
+        fun onListenerUI(action: (value: T) -> Unit) {
+            listeners.add(action)
+        }
+
+
+        private fun handleBufferChange(value: T) {
+            listeners.forEach {
+                it.invoke(value)
+            }
+        }
 
         /**
          * Отправка элемента в канал [Pipe]
@@ -104,7 +127,7 @@ class Pipe<T> {
          */
         suspend fun commit(value: T) {
             //TODO Обработка ошибки отправки
-            channel.send(value)
+            channel.send(value).also { handleBufferChange(value) }
         }
 
         /**
