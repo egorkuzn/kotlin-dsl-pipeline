@@ -22,6 +22,8 @@ sealed class Node(
     //  private val actions: suspend (coroutineScope: CoroutineScope) -> Unit,
 ) {
     val context: Context = Context()
+    internal var isStart = false
+    internal var job: Job? = null
 
     /**
      * Класс, представляющий контекст узла.
@@ -64,11 +66,13 @@ sealed class Node(
         name: String,
         private val input: Pipe<T>,
         private val output: Pipe<U>,
-        private val  actions: suspend (Pipe<T>.Consumer, Pipe<U>.Producer) -> Unit
+        private val actions: suspend (Pipe<T>.Consumer, Pipe<U>.Producer) -> Unit
     ) : Node(name, listOf(input), listOf(output)) {
 
-        override fun start(coroutineScope: CoroutineScope): Job {
-            return coroutineScope.launch {
+        override fun start(coroutineScope: CoroutineScope) {
+            assert(isStart)
+            isStart = true
+            job = coroutineScope.launch {
                 actions.invoke(input.Consumer(coroutineScope), output.Producer())
             }
         }
@@ -77,11 +81,13 @@ sealed class Node(
     class Input1<T>(
         name: String,
         private val input: Pipe<T>,
-        private val  actions: suspend (Pipe<T>.Consumer) -> Unit
+        private val actions: suspend (Pipe<T>.Consumer) -> Unit
     ) : Node(name, listOf(input), emptyList()) {
 
-        override fun start(coroutineScope: CoroutineScope): Job {
-            return coroutineScope.launch {
+        override fun start(coroutineScope: CoroutineScope) {
+            assert(isStart)
+            isStart = true
+            job = coroutineScope.launch {
                 actions.invoke(input.Consumer(coroutineScope))
             }
         }
@@ -93,19 +99,27 @@ sealed class Node(
         private val actions: suspend (Pipe<U>.Producer) -> Unit
     ) : Node(name, emptyList(), listOf(output)) {
 
-        override fun start(coroutineScope: CoroutineScope): Job {
-            return coroutineScope.launch {
+        override fun start(coroutineScope: CoroutineScope) {
+            assert(isStart)
+            isStart = true
+            job = coroutineScope.launch {
                 actions.invoke(output.Producer())
             }
         }
     }
 
-    abstract fun start(coroutineScope: CoroutineScope): Job
+    abstract fun start(coroutineScope: CoroutineScope)
+
+    fun stop() {
+        assert(!isStart)
+        job?.cancel()
+        destroy()
+    }
 
     /**
      * Уничтожает узел, закрывая все связанные каналы.
      */
-    fun destroy() {
+    private fun destroy() {
         input.forEach { it.close() }
         output.forEach { it.close() }
     }

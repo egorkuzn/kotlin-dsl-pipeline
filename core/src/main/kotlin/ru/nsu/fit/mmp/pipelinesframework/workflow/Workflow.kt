@@ -14,7 +14,6 @@ class Workflow(
     private val nodes: List<Node>, dispatcher: CoroutineDispatcher,
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
-    private val jobs = mutableListOf<Job>()
     private val context = Context()
 
     /**
@@ -60,7 +59,7 @@ class Workflow(
      */
     fun start() {
         nodes.forEach { node ->
-            jobs.add(node.start(coroutineScope))
+            node.start(coroutineScope)
 //                coroutineScope
 //                    .launch {
 //                        launch {
@@ -76,10 +75,8 @@ class Workflow(
     /**
      * Остановка конвейера
      */
-    suspend fun stop() {
-        nodes.forEach { it.destroy() }
-
-        joinAll(*jobs.toTypedArray())
+    fun stop() {
+        nodes.forEach { it.stop() }
     }
 
 }
