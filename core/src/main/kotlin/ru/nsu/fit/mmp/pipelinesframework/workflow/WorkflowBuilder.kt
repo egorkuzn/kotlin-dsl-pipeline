@@ -4,11 +4,16 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import ru.nsu.fit.mmp.pipelinesframework.Node
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
+import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.OneToManyWorkflowBuilder
+import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.ThreeToManyWorkflowBuilder
+import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.TwoToManyWorkflowBuilder
 
 /**
  * Класс для построения DSL конвейерной обработки
  */
-class WorkflowBuilder {
+class WorkflowBuilder: OneToManyWorkflowBuilder,
+    TwoToManyWorkflowBuilder,
+    ThreeToManyWorkflowBuilder {
     private val nodes = mutableListOf<Node>()
 
     /**
@@ -16,17 +21,87 @@ class WorkflowBuilder {
      *
      * @param name Название узла
      * @param inputs Входной канал [Pipe] с данными типа T
-     * @param outputs Выходной канал [Pipe] с данными типа Q
+     * @param outputs Выходной канал [Pipe] с данными типа T
      * @param action Лямбда-функция, описывающая логику обработки данных узлом
      */
-    fun <T, Q> node(
+    override fun <T> node(
         name: String,
         inputs: Pipe<T>,
-        outputs: Pipe<Q>,
-        action: suspend (Pipe<T>.Consumer, Pipe<Q>.Producer) -> Unit
+        outputs: Pipe<T>,
+        action: suspend (Pipe<T>.Consumer, Pipe<T>.Producer) -> Unit
     ) {
         nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
             action.invoke(inputs.Consumer(it), outputs.Producer())
+        })
+    }
+
+    /**
+     * Конструкция DSL, создающая узел обработки [Node]
+     *
+     * @param name Название узла
+     * @param inputs Входные каналы [Pipe] с данными типа T и Q
+     * @param outputs Выходные каналы [Pipe] с данными типа T и Q
+     * @param action Лямбда-функция, описывающая логику обработки данных узлом
+     */
+    override fun <T, Q> node(
+        name: String,
+        inputs: Pair<Pipe<T>, Pipe<Q>>,
+        outputs: Pair<Pipe<T>, Pipe<Q>>,
+        action: suspend (
+            consumerT: Pipe<T>.Consumer,
+            consumerQ: Pipe<Q>.Consumer,
+            producerT: Pipe<T>.Producer,
+            producerQ: Pipe<Q>.Producer,
+        ) -> Unit
+    ) {
+        nodes.add(Node(
+            name,
+            inputs.toList(),
+            outputs.toList()
+        ) {
+            action.invoke(
+                inputs.first.Consumer(it),
+                inputs.second.Consumer(it),
+                outputs.first.Producer(),
+                outputs.second.Producer()
+            )
+        })
+    }
+
+    /**
+     * Конструкция DSL, создающая узел обработки [Node]
+     *
+     * @param name Название узла
+     * @param inputs Входные каналы [Pipe] с данными типа T, Q и M
+     * @param outputs Выходные каналы [Pipe] с данными типа T, Q и M
+     * @param action Лямбда-функция, описывающая логику обработки данных узлом
+     */
+    override fun <T, Q, M> node(
+        name: String,
+        inputs: Triple<Pipe<T>, Pipe<Q>, Pipe<M>>,
+        outputs: Triple<Pipe<T>, Pipe<Q>, Pipe<M>>,
+        action: suspend (
+            consumerT: Pipe<T>.Consumer,
+            consumerQ: Pipe<Q>.Consumer,
+            consumerM: Pipe<M>.Consumer,
+            producerT: Pipe<T>.Producer,
+            producerQ: Pipe<Q>.Producer,
+            producerM: Pipe<M>.Producer
+        ) -> Unit
+    ) {
+        nodes.add(Node(
+            name,
+            inputs.toList(),
+            outputs.toList()
+        ) {
+            action.invoke(
+                inputs.first.Consumer(it),
+                inputs.second.Consumer(it),
+                inputs.third.Consumer(it),
+                outputs.first.Producer(),
+                outputs.second.Producer(),
+                outputs.third.Producer()
+            )
         })
     }
 
