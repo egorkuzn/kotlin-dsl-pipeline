@@ -74,8 +74,19 @@ class WorkflowBuilder {
      * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для управления асинхронными задачами
      * @return Новый экземпляр конвейера [Workflow]
      */
-    fun build(countStackContext: Int, dispatcher: CoroutineDispatcher): Workflow {
-        return Workflow(nodes, countStackContext, dispatcher)
+    fun build(
+        countStackContext: Int,
+        enableSecurityDeadLock: Boolean,
+        enabledWarringCyclePipe: Boolean,
+        dispatcher: CoroutineDispatcher
+    ): Workflow {
+        return Workflow(
+            nodes = nodes,
+            enableSecurityDeadLock = enableSecurityDeadLock,
+            enabledWarringCyclePipe = enabledWarringCyclePipe,
+            countStackContext = countStackContext,
+            dispatcher = dispatcher
+        )
     }
 
     /**
@@ -93,14 +104,19 @@ class WorkflowBuilder {
  * Открывающая DSL конструкция [WorkflowBuilder]
  *
  * @param countStackContext Количество контекстов, хранящиеся в стеке
+ * @param enableSecurityDeadLock Включение механизма обнаружения DeadLock
+ * @param enabledWarringCyclePipe Включение механизма обнаружения циклов
  * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для управления асинхронными задачами (по умолчанию [Dispatchers.Default])
  * @param init Контент конвейера
  * @return Новый экземпляр конвейера [Workflow]
  */
 fun Workflow(
     countStackContext: Int = 100,
+    enableSecurityDeadLock: Boolean = false,
+    enabledWarringCyclePipe: Boolean = false,
     dispatcher: CoroutineDispatcher = Dispatchers.Default,
     init: WorkflowBuilder.() -> Unit,
 ): Workflow {
-    return WorkflowBuilder().apply(init).build(countStackContext, dispatcher)
+    return WorkflowBuilder().apply(init)
+        .build(countStackContext, enableSecurityDeadLock, enabledWarringCyclePipe, dispatcher)
 }

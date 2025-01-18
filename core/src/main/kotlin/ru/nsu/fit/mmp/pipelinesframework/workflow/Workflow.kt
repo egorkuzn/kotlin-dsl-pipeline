@@ -1,9 +1,11 @@
 package ru.nsu.fit.mmp.pipelinesframework.workflow
 
+import ch.qos.logback.core.joran.conditional.IfAction
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import ru.nsu.fit.mmp.pipelinesframework.Node
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
+import ru.nsu.fit.mmp.pipelinesframework.util.CycleSearcherUtil
 
 /**
  * Класс, представляющий конвейер, состоящий из множества узлов [Node]
@@ -14,7 +16,11 @@ import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
  * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для выполнения действий в рамках конвейера
  */
 class Workflow(
-    private val nodes: List<Node>, private val countStackContext:  Int, dispatcher: CoroutineDispatcher,
+    private val nodes: List<Node>,
+    private val countStackContext:  Int,
+    private val enableSecurityDeadLock: Boolean,
+    enabledWarringCyclePipe: Boolean,
+    dispatcher: CoroutineDispatcher,
 ) {
     private val logger = KotlinLogging.logger {}
     private val coroutineScope = CoroutineScope(dispatcher)
@@ -24,6 +30,15 @@ class Workflow(
             mutableMapOf<Long, List<String>>().apply {},
             mutableMapOf<Long, Pipe.Context>().apply {})
     )
+
+    init {
+        if (enabledWarringCyclePipe) {
+            if (CycleSearcherUtil().isContainsCycle(nodes))
+            {
+             logger.error { "Внимание обнаружен цикл" }
+            }
+        }
+    }
 
     /**
      * Класс, представляющий контекст конвейера
@@ -79,8 +94,10 @@ class Workflow(
      */
     fun start() {
         nodes.forEach { node ->
-            node.onContextListener {
-                handleUpdateContext(it)
+            if (enableSecurityDeadLock) {
+                node.onContextListener {
+                    handleUpdateContext(it)
+                }
             }
             node.start(coroutineScope)
         }
