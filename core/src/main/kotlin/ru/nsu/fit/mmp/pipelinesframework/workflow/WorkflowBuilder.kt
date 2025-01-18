@@ -4,16 +4,11 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import ru.nsu.fit.mmp.pipelinesframework.Node
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.OneToManyWorkflowBuilder
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.ThreeToManyWorkflowBuilder
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.TwoToManyWorkflowBuilder
 
 /**
  * Класс для построения DSL конвейерной обработки
  */
-class WorkflowBuilder: OneToManyWorkflowBuilder,
-    TwoToManyWorkflowBuilder,
-    ThreeToManyWorkflowBuilder {
+class WorkflowBuilder {
     private val nodes = mutableListOf<Node>()
 
     /**
@@ -24,7 +19,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
      * @param outputs Выходной канал [Pipe] с данными типа T
      * @param action Лямбда-функция, описывающая логику обработки данных узлом
      */
-    override fun <T> node(
+    fun <T> node(
         name: String,
         inputs: Pipe<T>,
         outputs: Pipe<T>,
@@ -43,7 +38,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
      * @param outputs Выходные каналы [Pipe] с данными типа T и Q
      * @param action Лямбда-функция, описывающая логику обработки данных узлом
      */
-    override fun <T, Q> node(
+    fun <T, Q> node(
         name: String,
         inputs: Pair<Pipe<T>, Pipe<Q>>,
         outputs: Pair<Pipe<T>, Pipe<Q>>,
@@ -76,7 +71,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
      * @param outputs Выходные каналы [Pipe] с данными типа T, Q и M
      * @param action Лямбда-функция, описывающая логику обработки данных узлом
      */
-    override fun <T, Q, M> node(
+    fun <T, Q, M> node(
         name: String,
         inputs: Triple<Pipe<T>, Pipe<Q>, Pipe<M>>,
         outputs: Triple<Pipe<T>, Pipe<Q>, Pipe<M>>,
