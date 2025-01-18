@@ -20,22 +20,31 @@ sealed class Node(
     val input: List<Pipe<*>>,
     val output: List<Pipe<*>>,
 ) {
-    private val current = mutableMapOf<Pipe<*>, Pipe.Context<*>>()
+    private val currentContext = mutableMapOf<Long, Pipe.Context>()
     private val contextListeners = mutableListOf<(Context) -> Unit>()
-    private val context get() = Context(id, ArrayList(buffer), current.map { it.value })
+    private val context get() = Context(id, buffer.map { it.toString() }, currentContext.map { it.value })
 
+    // Элементы, которые обрабатывает узел
     val buffer = mutableListOf<Any?>()
 
     internal var isStart = false
     internal var job: Job? = null
 
-    internal fun handlePipeContextChange(pipe: Pipe<*>, context: Pipe.Context<*>) {
-        current[pipe] = context
+    /**
+     * Обработчик обновления контекстов
+     * @param context Обновленный контекст канала [Pipe.Context]
+     */
+    internal fun handlePipeContextChange(context: Pipe.Context) {
+        currentContext[context.id] = context
         for (listener in contextListeners) {
             listener.invoke(this.context)
         }
     }
 
+    /**
+     * Регистрация обработчиков обновлений контекста
+     * @param action Обработчик
+     */
     fun onContextListener(action: (context: Context) -> Unit) {
         contextListeners.add(action)
     }
@@ -43,9 +52,16 @@ sealed class Node(
     /**
      * Класс, представляющий контекст узла.
      * Управляет слушателями и реагирует на изменения в контексте связанных каналов.
+     *
+     * @param id Индефикатор узла
+     * @param buffer Элементы, которые обрабатывает узел [Node]
+     * @param pipesContext Список контекстов каналов [Pipe.Context]
      */
-    data class Context(val id: Long, val buffer: List<Any?>, val pipesContext: List<Pipe.Context<*>>)
+    data class Context(val id: Long, val buffer: List<String>, val pipesContext: List<Pipe.Context>)
 
+    /**
+     * Узел 1-1
+     */
     class Input1Output1<T, U>(
         name: String,
         private val input1: Pipe<T>,
@@ -58,17 +74,15 @@ sealed class Node(
             isStart = true
 
             val costumer = input1.Consumer(coroutineScope)
-            costumer.onListenerUI { c, v ->
+            costumer.onContextListener { c, v ->
                 buffer.add(v)
-                handlePipeContextChange(input1, c)
-                println("$name read $v with $c")
+                handlePipeContextChange(c)
             }
 
             val producer = output1.Producer()
-            producer.onListenerUI { c, v ->
+            producer.onContextListener { c, v ->
                 buffer.remove(v)
-                handlePipeContextChange(output1, c)
-                println("$name write $v with $c")
+                handlePipeContextChange(c)
             }
 
             job = coroutineScope.launch {
@@ -77,21 +91,23 @@ sealed class Node(
         }
     }
 
+    /**
+     * Узел 1-0
+     */
     class Input1<T>(
         name: String,
         private val input1: Pipe<T>,
         private val actions: suspend (Pipe<T>.Consumer) -> Unit
-    ) : Node(name = name, input = listOf(input1), output =  emptyList()) {
+    ) : Node(name = name, input = listOf(input1), output = emptyList()) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
 
             val costumer = input1.Consumer(coroutineScope)
-            costumer.onListenerUI { c, v ->
+            costumer.onContextListener { c, v ->
                 buffer.add(v)
-                handlePipeContextChange(input1, c)
-                println("$name read $v with $c")
+                handlePipeContextChange(c)
             }
             job = coroutineScope.launch {
                 actions.invoke(costumer)
@@ -99,21 +115,23 @@ sealed class Node(
         }
     }
 
+    /**
+     * Узел 0-1
+     */
     class Output1<U>(
         name: String,
         private val output1: Pipe<U>,
         private val actions: suspend (Pipe<U>.Producer) -> Unit
-    ) : Node(name = name, input =  emptyList(), output = listOf(output1)) {
+    ) : Node(name = name, input = emptyList(), output = listOf(output1)) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
 
             val producer = output1.Producer()
-            producer.onListenerUI { c, v ->
+            producer.onContextListener { c, v ->
                 buffer.remove(v)
-                handlePipeContextChange(output1, c)
-                println("$name write $v with $c")
+                handlePipeContextChange(c)
             }
 
             job = coroutineScope.launch {
@@ -122,6 +140,11 @@ sealed class Node(
         }
     }
 
+    /**
+     * Запуск конвейера
+     *
+     * @param coroutineScope Контекст корутины [CoroutineScope], в котором запускается узел [Node]
+     */
     abstract fun start(coroutineScope: CoroutineScope)
 
     fun stop() {

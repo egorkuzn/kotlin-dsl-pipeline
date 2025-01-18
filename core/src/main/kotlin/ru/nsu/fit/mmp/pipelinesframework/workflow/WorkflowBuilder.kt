@@ -74,8 +74,8 @@ class WorkflowBuilder {
      * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для управления асинхронными задачами
      * @return Новый экземпляр конвейера [Workflow]
      */
-    fun build(dispatcher: CoroutineDispatcher): Workflow {
-        return Workflow(nodes, dispatcher)
+    fun build(countStackContext: Int, dispatcher: CoroutineDispatcher): Workflow {
+        return Workflow(nodes, countStackContext, dispatcher)
     }
 
     /**
@@ -84,7 +84,7 @@ class WorkflowBuilder {
      * @return Новый экземпляр общего конвейера [SharedWorkflow]
      */
     fun buildSharedWorkflow(): SharedWorkflow {
-        return SharedWorkflow(nodes)
+        return SharedWorkflow(nodes = nodes)
     }
 
 }
@@ -92,12 +92,15 @@ class WorkflowBuilder {
 /**
  * Открывающая DSL конструкция [WorkflowBuilder]
  *
+ * @param countStackContext Количество контекстов, хранящиеся в стеке
  * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для управления асинхронными задачами (по умолчанию [Dispatchers.Default])
  * @param init Контент конвейера
  * @return Новый экземпляр конвейера [Workflow]
  */
 fun Workflow(
-    dispatcher: CoroutineDispatcher = Dispatchers.Default, init: WorkflowBuilder.() -> Unit,
+    countStackContext: Int = 100,
+    dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    init: WorkflowBuilder.() -> Unit,
 ): Workflow {
-    return WorkflowBuilder().apply(init).build(dispatcher)
+    return WorkflowBuilder().apply(init).build(countStackContext, dispatcher)
 }

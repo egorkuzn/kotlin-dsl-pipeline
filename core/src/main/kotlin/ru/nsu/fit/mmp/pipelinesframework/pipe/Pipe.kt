@@ -19,9 +19,16 @@ class Pipe<T> {
 
     private val lock = Any()
 
-    private val context get() = Context(id, stateBuffer, ArrayList(buffer))
+    private val context get() = Context(id, stateBuffer, buffer.map { it.toString() })
 
-    data class Context<T>(val id: Long, val state: Long, val buffer: List<T>)
+    /**
+     * Класс, представляющий контекст канала [Pipe]
+     *
+     * @param id Индефикатор канала
+     * @param state Номер состояния
+     * @param buffer Список элементов из буффера
+     */
+    data class Context(val id: Long, val state: Long, val buffer: List<String>)
 
     /**
      * Класс, представляющий потребителя данных [T] из канала [Pipe]
@@ -30,15 +37,24 @@ class Pipe<T> {
      */
     inner class Consumer(private val coroutineScope: CoroutineScope) {
         private val receiveChannel = channel
-        private val listeners = mutableListOf<(Context<T>, T) -> Unit>()
+        private val contextListeners = mutableListOf<(Context, T) -> Unit>()
 
-        fun onListenerUI(action: (Context<T>, T) -> Unit) {
-            listeners.add(action)
+        /**
+         * Добавление обработчиков изменения буффера
+         *
+         * @param action Обработчик
+         */
+        fun onContextListener(action: (Context, T) -> Unit) {
+            contextListeners.add(action)
         }
 
-
+        /**
+         * Обработчик изменений состояния буффера
+         *
+         * @param value Новое значение
+         */
         private fun handleBufferChange(value: T) {
-            listeners.forEach {
+            contextListeners.forEach {
                 synchronized(lock) {
                     buffer.remove(value)
                     stateBuffer++
@@ -46,6 +62,7 @@ class Pipe<T> {
                 }
             }
         }
+
         /**
          * Получение следующего элемента из канала [Pipe]
          *
@@ -85,15 +102,24 @@ class Pipe<T> {
      */
     inner class Producer {
         private val sendChannel = channel
-        private val listeners = mutableListOf<(Context<T>,T) -> Unit>()
+        private val contextListeners = mutableListOf<(Context, T) -> Unit>()
 
-        fun onListenerUI(action: (Context<T>, T) -> Unit) {
-            listeners.add(action)
+        /**
+         * Добавление обработчиков изменения буффера
+         *
+         * @param action Обработчик
+         */
+        fun onContextListener(action: (Context, T) -> Unit) {
+            contextListeners.add(action)
         }
 
-
+        /**
+         * Обработчик изменений состояния буффера
+         *
+         * @param value Новое значение
+         */
         private fun handleBufferChange(value: T) {
-            listeners.forEach {
+            contextListeners.forEach {
                 synchronized(lock) {
                     buffer.add(value)
                     stateBuffer++
