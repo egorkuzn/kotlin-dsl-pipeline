@@ -1,6 +1,7 @@
 package ru.nsu.fit.mmp.pipelinesframework.workflow
 
-import ru.nsu.fit.mmp.pipelinesframework.Node
+import ru.nsu.fit.mmp.pipelinesframework.node.Node
+import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.WorkflowBuilder
 
 /**
  * Класс, представляющий общий конвейер, состоящий из списка узлов

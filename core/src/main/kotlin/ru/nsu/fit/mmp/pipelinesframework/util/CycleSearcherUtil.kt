@@ -1,7 +1,7 @@
 package ru.nsu.fit.mmp.pipelinesframework.util
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import ru.nsu.fit.mmp.pipelinesframework.Node
+import ru.nsu.fit.mmp.pipelinesframework.node.Node
 
 class CycleSearcherUtil {
     private val logger = KotlinLogging.logger {}

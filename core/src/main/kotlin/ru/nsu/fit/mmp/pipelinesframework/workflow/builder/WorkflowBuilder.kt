@@ -1,70 +1,21 @@
-package ru.nsu.fit.mmp.pipelinesframework.workflow
+package ru.nsu.fit.mmp.pipelinesframework.workflow.builder
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import ru.nsu.fit.mmp.pipelinesframework.Node
+import ru.nsu.fit.mmp.pipelinesframework.node.*
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.OneToManyWorkflowBuilder
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.ThreeToManyWorkflowBuilder
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.TwoToManyWorkflowBuilder
+import ru.nsu.fit.mmp.pipelinesframework.workflow.SharedWorkflow
+import ru.nsu.fit.mmp.pipelinesframework.workflow.Workflow
 
 /**
  * Класс для построения DSL конвейерной обработки
  */
-class WorkflowBuilder: OneToManyWorkflowBuilder,
-    TwoToManyWorkflowBuilder,
-    ThreeToManyWorkflowBuilder {
-    private val nodes = mutableListOf<Node>()
-
-    /**
-     * Конструкция DSL, создающая узел обработки [Node]
-     *
-     * @param name Название узла
-     * @param inputs Входной канал [Pipe] с данными типа T
-     * @param outputs Выходной канал [Pipe] с данными типа T
-     * @param action Лямбда-функция, описывающая логику обработки данных узлом
-     */
-    override fun <T> node(
-        name: String,
-        inputs: Pipe<T>,
-        outputs: Pipe<T>,
-        action: suspend (Pipe<T>.Consumer, Pipe<T>.Producer) -> Unit
-    ) {
-        nodes.add(Node.Input1Output1(name, inputs, outputs, action))
-    }
-
-    /**
-     * Конструкция DSL, создающая узел обработки [Node]
-     *
-     * @param name Название узла
-     * @param inputs Входные каналы [Pipe] с данными типа T и Q
-     * @param outputs Выходные каналы [Pipe] с данными типа T и Q
-     * @param action Лямбда-функция, описывающая логику обработки данных узлом
-     */
-    override fun <T, Q> node(
-        name: String,
-        inputs: Pair<Pipe<T>, Pipe<Q>>,
-        outputs: Pair<Pipe<T>, Pipe<Q>>,
-        action: suspend (
-            consumerT: Pipe<T>.Consumer,
-            consumerQ: Pipe<Q>.Consumer,
-            producerT: Pipe<T>.Producer,
-            producerQ: Pipe<Q>.Producer,
-        ) -> Unit
-    ) {
-        nodes.add(Node(
-            name,
-            inputs.toList(),
-            outputs.toList()
-        ) {
-            action.invoke(
-                inputs.first.Consumer(it),
-                inputs.second.Consumer(it),
-                outputs.first.Producer(),
-                outputs.second.Producer()
-            )
-        })
-    }
+class WorkflowBuilder
+//    OneToManyWorkflowBuilder,
+//    TwoToManyWorkflowBuilder,
+//    ThreeToManyWorkflowBuilder
+{
+    internal val nodes = mutableListOf<Node>()
 
     /**
      * Конструкция DSL, создающая узел обработки [Node]
@@ -74,7 +25,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
      * @param outputs Выходные каналы [Pipe] с данными типа T, Q и M
      * @param action Лямбда-функция, описывающая логику обработки данных узлом
      */
-    override fun <T, Q, M> node(
+    fun <T, Q, M> node(
         name: String,
         inputs: Triple<Pipe<T>, Pipe<Q>, Pipe<M>>,
         outputs: Triple<Pipe<T>, Pipe<Q>, Pipe<M>>,
@@ -87,20 +38,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
             producerM: Pipe<M>.Producer
         ) -> Unit
     ) {
-        nodes.add(Node(
-            name,
-            inputs.toList(),
-            outputs.toList()
-        ) {
-            action.invoke(
-                inputs.first.Consumer(it),
-                inputs.second.Consumer(it),
-                inputs.third.Consumer(it),
-                outputs.first.Producer(),
-                outputs.second.Producer(),
-                outputs.third.Producer()
-            )
-        })
+        nodes.add(Node.Input3Output3(name, inputs, outputs, action))
     }
 
     /**
@@ -115,7 +53,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
         output: Pipe<T>,
         action: suspend (Pipe<T>.Producer) -> Unit,
     ) {
-        nodes.add(Node.Output1(name, output, action))
+        nodes.add(Output1(name, output, action))
     }
 
     /**
@@ -130,7 +68,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
         input: Pipe<T>,
         action: suspend (Pipe<T>.Consumer) -> Unit,
     ) {
-        nodes.add(Node.Input1(name, input, action))
+        nodes.add(Input1(name, input, action))
     }
 
     /**

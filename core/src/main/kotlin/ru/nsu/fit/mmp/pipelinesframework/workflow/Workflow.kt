@@ -3,7 +3,7 @@ package ru.nsu.fit.mmp.pipelinesframework.workflow
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import ru.nsu.fit.mmp.pipelinesframework.Node
+import ru.nsu.fit.mmp.pipelinesframework.node.Node
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 import ru.nsu.fit.mmp.pipelinesframework.util.CycleSearcherUtil
 

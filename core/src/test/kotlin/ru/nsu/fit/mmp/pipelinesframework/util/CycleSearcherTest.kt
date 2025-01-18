@@ -2,7 +2,7 @@ package ru.nsu.fit.mmp.pipelinesframework.util
 
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import ru.nsu.fit.mmp.pipelinesframework.Node
+import ru.nsu.fit.mmp.pipelinesframework.node.Node
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 
 class CycleSearcherTest: StringSpec({

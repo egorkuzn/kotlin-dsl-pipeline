@@ -1,4 +1,4 @@
-package ru.nsu.fit.mmp.pipelinesframework
+package ru.nsu.fit.mmp.pipelinesframework.node
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -59,83 +59,37 @@ sealed class Node(
      */
     data class Context(val id: Long, val buffer: List<String>, val pipesContext: List<Pipe.Context>)
 
+
     /**
-     * Узел 1-1
+     * Узел 3-3
      */
-    class Input1Output1<T, U>(
+    class Input3Output3<T1, T2, T3, U1, U2, U3>(
         name: String,
-        private val input1: Pipe<T>,
-        private val output1: Pipe<U>,
-        private val actions: suspend (Pipe<T>.Consumer, Pipe<U>.Producer) -> Unit
-    ) : Node(name = name, input = listOf(input1), output = listOf(output1)) {
+        private val input1: Triple<Pipe<T1>, Pipe<T2>, Pipe<T3>>,
+        private val output1: Triple<Pipe<U1>, Pipe<U2>, Pipe<U3>>,
+        private val actions: suspend (
+            consumerT1: Pipe<T1>.Consumer,
+            consumerT2: Pipe<T2>.Consumer,
+            consumerT3: Pipe<T3>.Consumer,
+            producerU1: Pipe<U1>.Producer,
+            producerU2: Pipe<U2>.Producer,
+            producerU3: Pipe<U3>.Producer,
+        ) -> Unit
+    ) : Node(name = name, input = input1.toList(), output = output1.toList()) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
 
-            val costumer = input1.Consumer(coroutineScope)
-            costumer.onContextListener { c, v ->
-                buffer.add(v)
-                handlePipeContextChange(c)
-            }
-
-            val producer = output1.Producer()
-            producer.onContextListener { c, v ->
-                buffer.remove(v)
-                handlePipeContextChange(c)
-            }
-
             job = coroutineScope.launch {
-                actions.invoke(costumer, producer)
-            }
-        }
-    }
-
-    /**
-     * Узел 1-0
-     */
-    class Input1<T>(
-        name: String,
-        private val input1: Pipe<T>,
-        private val actions: suspend (Pipe<T>.Consumer) -> Unit
-    ) : Node(name = name, input = listOf(input1), output = emptyList()) {
-
-        override fun start(coroutineScope: CoroutineScope) {
-            assert(isStart)
-            isStart = true
-
-            val costumer = input1.Consumer(coroutineScope)
-            costumer.onContextListener { c, v ->
-                buffer.add(v)
-                handlePipeContextChange(c)
-            }
-            job = coroutineScope.launch {
-                actions.invoke(costumer)
-            }
-        }
-    }
-
-    /**
-     * Узел 0-1
-     */
-    class Output1<U>(
-        name: String,
-        private val output1: Pipe<U>,
-        private val actions: suspend (Pipe<U>.Producer) -> Unit
-    ) : Node(name = name, input = emptyList(), output = listOf(output1)) {
-
-        override fun start(coroutineScope: CoroutineScope) {
-            assert(isStart)
-            isStart = true
-
-            val producer = output1.Producer()
-            producer.onContextListener { c, v ->
-                buffer.remove(v)
-                handlePipeContextChange(c)
-            }
-
-            job = coroutineScope.launch {
-                actions.invoke(producer)
+                actions.invoke(
+                    consumer(input1.first, coroutineScope),
+                    consumer(input1.second, coroutineScope),
+                    consumer(input1.third, coroutineScope),
+                    producer(output1.first),
+                    producer(output1.second),
+                    producer(output1.third),
+                )
             }
         }
     }
@@ -151,6 +105,24 @@ sealed class Node(
         assert(!isStart)
         job?.cancel()
         destroy()
+    }
+
+    internal fun <T> consumer(pipe: Pipe<T>, coroutineScope: CoroutineScope): Pipe<T>.Consumer {
+        val consumer = pipe.Consumer(coroutineScope)
+        consumer.onContextListener { c, v ->
+            buffer.add(v)
+            handlePipeContextChange(c)
+        }
+        return consumer;
+    }
+
+    internal fun <T> producer(pipe: Pipe<T>): Pipe<T>.Producer {
+        val producer = pipe.Producer()
+        producer.onContextListener { c, v ->
+            buffer.remove(v)
+            handlePipeContextChange(c)
+        }
+        return producer;
     }
 
     /**
