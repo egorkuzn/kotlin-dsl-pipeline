@@ -1,8 +1,8 @@
 package ru.nsu.fit.mmp.pipelinesframework.workflow
 
-import ch.qos.logback.core.joran.conditional.IfAction
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import ru.nsu.fit.mmp.pipelinesframework.Node
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 import ru.nsu.fit.mmp.pipelinesframework.util.CycleSearcherUtil
@@ -19,6 +19,7 @@ class Workflow(
     private val nodes: List<Node>,
     private val countStackContext:  Int,
     private val enableSecurityDeadLock: Boolean,
+    private val updateContext: (Context)->Unit,
     enabledWarringCyclePipe: Boolean,
     dispatcher: CoroutineDispatcher,
 ) {
@@ -128,6 +129,7 @@ class Workflow(
 
         assert(contextHistory.contains(newContext))
         contextHistory.add(newContext)
+        updateContext.invoke(newContext)
     }
 
 

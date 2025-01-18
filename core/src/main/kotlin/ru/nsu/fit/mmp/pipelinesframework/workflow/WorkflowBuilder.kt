@@ -78,10 +78,12 @@ class WorkflowBuilder {
         countStackContext: Int,
         enableSecurityDeadLock: Boolean,
         enabledWarringCyclePipe: Boolean,
+        updateContext: (Workflow.Context)->Unit,
         dispatcher: CoroutineDispatcher
     ): Workflow {
         return Workflow(
             nodes = nodes,
+            updateContext= updateContext,
             enableSecurityDeadLock = enableSecurityDeadLock,
             enabledWarringCyclePipe = enabledWarringCyclePipe,
             countStackContext = countStackContext,
@@ -114,9 +116,10 @@ fun Workflow(
     countStackContext: Int = 100,
     enableSecurityDeadLock: Boolean = false,
     enabledWarringCyclePipe: Boolean = false,
+    updateContext: (Workflow.Context)->Unit = {},
     dispatcher: CoroutineDispatcher = Dispatchers.Default,
     init: WorkflowBuilder.() -> Unit,
 ): Workflow {
     return WorkflowBuilder().apply(init)
-        .build(countStackContext, enableSecurityDeadLock, enabledWarringCyclePipe, dispatcher)
+        .build(countStackContext, enableSecurityDeadLock, enabledWarringCyclePipe,updateContext,  dispatcher)
 }
