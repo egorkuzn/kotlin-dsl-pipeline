@@ -3,6 +3,7 @@ package ru.nsu.fit.mmp.pipelinesframework.pipe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
+import java.util.*
 
 /**
  * Класс, представляющий односторонний канал для асинхронной передачи данных
@@ -11,42 +12,16 @@ import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
  */
 class Pipe<T> {
     private val channel = BufferChannel.of<T>();
-    val context = Context()
+    private val id = Random().nextLong()
 
-    /**
-     * Класс, предоставляющий контекст Pipe
-     * Используется для управления слушателями и обработки событий, связанных с буфером
-     */
-    inner class Context {
-        private val listeners = mutableListOf<(Context) -> Unit>()
+    private val buffer = mutableListOf<T>()
+    private var stateBuffer = 0L
 
-        init {
-            channel.onListenerBuffer {
-                handleBufferChange(it)
-            }
-        }
+    private val lock = Any()
 
-        /**
-         * Регистрация нового слушателя событий контекста
-         *
-         * @param action Действие, которое выполняется при изменении контекста
-         */
-        fun onListener(action: (context: Context) -> Unit) {
-            listeners.add(action)
-        }
+    private val context get() = Context(id, stateBuffer, buffer)
 
-        /**
-         * Обработчик изменений в буфере и уведомляет всех слушателей
-         *
-         * @param buffer Текущее состояние буфера
-         */
-        private fun handleBufferChange(buffer: List<T>) {
-            //TODO buffer нужен для логирования
-            listeners.forEach {
-                it.invoke(this)
-            }
-        }
-    }
+    data class Context<T>(val id: Long, val state: Long, val buffer: List<T>)
 
     /**
      * Класс, представляющий потребителя данных [T] из канала [Pipe]
@@ -55,16 +30,20 @@ class Pipe<T> {
      */
     inner class Consumer(private val coroutineScope: CoroutineScope) {
         private val receiveChannel = channel
-        private val listeners = mutableListOf<(T) -> Unit>()
+        private val listeners = mutableListOf<(Context<T>, T) -> Unit>()
 
-        fun onListenerUI(action: (value: T) -> Unit) {
+        fun onListenerUI(action: (Context<T>, T) -> Unit) {
             listeners.add(action)
         }
 
 
         private fun handleBufferChange(value: T) {
             listeners.forEach {
-                it.invoke(value)
+                synchronized(lock) {
+                    buffer.remove(value)
+                    stateBuffer++
+                    it.invoke(context, value)
+                }
             }
         }
         /**
@@ -106,16 +85,20 @@ class Pipe<T> {
      */
     inner class Producer {
         private val sendChannel = channel
-        private val listeners = mutableListOf<(T) -> Unit>()
+        private val listeners = mutableListOf<(Context<T>,T) -> Unit>()
 
-        fun onListenerUI(action: (value: T) -> Unit) {
+        fun onListenerUI(action: (Context<T>, T) -> Unit) {
             listeners.add(action)
         }
 
 
         private fun handleBufferChange(value: T) {
             listeners.forEach {
-                it.invoke(value)
+                synchronized(lock) {
+                    buffer.add(value)
+                    stateBuffer++
+                    it.invoke(context, value)
+                }
             }
         }
 

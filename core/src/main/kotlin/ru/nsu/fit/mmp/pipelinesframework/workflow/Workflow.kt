@@ -2,6 +2,7 @@ package ru.nsu.fit.mmp.pipelinesframework.workflow
 
 import kotlinx.coroutines.*
 import ru.nsu.fit.mmp.pipelinesframework.Node
+import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 
 /**
  * Класс, представляющий конвейер, состоящий из множества узлов [Node]
@@ -14,44 +15,11 @@ class Workflow(
     private val nodes: List<Node>, dispatcher: CoroutineDispatcher,
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
-    private val context = Context()
 
-    /**
-     * Вложенный класс, представляющий контекст [Workflow]
-     * Управляет слушателями и реагирует на изменения в контексте узлов.
-     */
-    inner class Context {
-        private val listeners = mutableListOf<(Context) -> Unit>()
+    private val contextHistory = mutableListOf(Context(mutableMapOf<Long, Pipe.Context<*>>().apply {}))
 
-        init {
-            nodes.forEach { node ->
-                node.context.onListener {
-                    handleNodeContextChange(node)
-                }
-            }
-        }
+    data class Context(val contextPipe: MutableMap<Long, Pipe.Context<*>>)
 
-        /**
-         * Регистрация слушателя, который будет реагировать на изменения контекста [Workflow]
-         *
-         * @param listener Действие, выполняемое при изменении контекста.
-         */
-        fun onListener(listener: (Context) -> Unit) {
-            listeners.add(listener)
-        }
-
-        /**
-         * Обработчик изменения контекста в указанном узле
-         *
-         * @param node Узел, в контексте которого произошло изменение
-         */
-        private fun handleNodeContextChange(node: Node) {
-            //TODO node нужен для логирования
-            listeners.forEach {
-                it.invoke(context)
-            }
-        }
-    }
 
     /**
      * Запуск конвейера
@@ -59,24 +27,37 @@ class Workflow(
      */
     fun start() {
         nodes.forEach { node ->
+            node.onContextListener {
+                handleUpdateContext(node, it)
+            }
             node.start(coroutineScope)
-//                coroutineScope
-//                    .launch {
-//                        launch {
-//                            context.onListener {
-//                                println("Node '${node.name}' context changed: $it")
-//                            }
-//                        }
-//                        node
-//                    })
         }
     }
+
+    private fun handleUpdateContext(node: Node, context: Node.Context) {
+
+        val d = contextHistory.last().copy()
+        context.buffer.forEach {
+            if (d.contextPipe.containsKey(it.id)) {
+                if (d.contextPipe[it.id]?.state!! < it.state) {
+                    d.contextPipe[it.id] = it
+                }
+            } else {
+                d.contextPipe[it.id] = it
+            }
+        }
+        contextHistory.add(d)
+
+    }
+
 
     /**
      * Остановка конвейера
      */
     fun stop() {
         nodes.forEach { it.stop() }
+        println("_________________")
+        println(contextHistory)
     }
 
 }

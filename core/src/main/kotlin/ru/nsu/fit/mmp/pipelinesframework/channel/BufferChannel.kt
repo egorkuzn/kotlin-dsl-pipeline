@@ -18,17 +18,12 @@ interface BufferChannel<E> : Channel<E>, ReceiveBufferChannel<E>, SendBufferChan
         fun <E> of(): BufferChannel<E> = BufferChannelImpl()
     }
 
-    /**
-     * Список элементов, находящихся в буфере канала
-     *
-     * @return Список элементов в буфере
-     */
-    fun bufferElements(): List<E>
+//    /**
+//     * Список элементов, находящихся в буфере канала
+//     *
+//     * @return Список элементов в буфере
+//     */
+    fun context(): Context<E>
 
-    /**
-     * Регистрация слушателя изменений в буфере канала
-     *
-     * @param listener Лямбда-функция, принимающая текущий список элементов в буфере
-     */
-    fun onListenerBuffer(listener: (List<E>) -> Unit)
+    data class Context<E>(val code: Long, val buffer: List<E>)
 }

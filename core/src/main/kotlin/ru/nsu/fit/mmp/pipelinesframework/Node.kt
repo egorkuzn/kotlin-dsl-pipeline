@@ -4,7 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
-
+import java.util.*
 
 /**
  * Представляет узел (node), который работает с входными и выходными каналами (pipe).
@@ -12,75 +12,60 @@ import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
  * @param name Название ноды.
  * @param input Список входных каналов (Pipe), через которые поступают данные.
  * @param output Список выходных каналов (Pipe), через которые отправляются данные.
- * @param actions Лямбда-функция, определяющая действия, выполняемые узлом.
  * @see Pipe
  */
 sealed class Node(
     val name: String,
-    private val input: List<Pipe<*>>,
-    private val output: List<Pipe<*>>,
+    val input: List<Pipe<*>>,
+    val output: List<Pipe<*>>,
 ) {
-    val context: Context = Context()
+    private val id = Random().nextLong()
+    private val current = mutableMapOf<Pipe<*>, Pipe.Context<*>>()
+    private val contextListeners = mutableListOf<(Context) -> Unit>()
+    private val context get() = Context(id, current.map { it.value })
+
     internal var isStart = false
     internal var job: Job? = null
+
+    internal fun handlePipeContextChange(pipe: Pipe<*>, context: Pipe.Context<*>) {
+        current[pipe] = context
+        for (listener in contextListeners) {
+            listener.invoke(this.context)
+        }
+    }
+
+    fun onContextListener(action: (context: Context) -> Unit) {
+        contextListeners.add(action)
+    }
 
     /**
      * Класс, представляющий контекст узла.
      * Управляет слушателями и реагирует на изменения в контексте связанных каналов.
      */
-    inner class Context {
-        private val listeners = mutableListOf<(Context) -> Unit>()
-
-        init {
-            (input + output).forEach { pipe ->
-                pipe.context.onListener {
-                    handlePipeContextChange(pipe)
-                }
-            }
-        }
-
-        /**
-         * Обрабатывает изменения контекста в переданном канале.
-         *
-         * @param pipe Канал, в контексте которого произошли изменения.
-         */
-        private fun handlePipeContextChange(pipe: Pipe<*>) {
-            //TODO pipe нужен для логирования
-            listeners.forEach {
-                it.invoke(this)
-            }
-        }
-
-        /**
-         * Регистрирует слушателя, который будет реагировать на изменения контекста узла.
-         *
-         * @param action Действие, выполняемое при изменении контекста.
-         */
-        fun onListener(action: (context: Context) -> Unit) {
-            listeners.add(action)
-        }
-    }
+    data class Context(val id: Long, val buffer: List<Pipe.Context<*>>)
 
     class Input1Output1<T, U>(
         name: String,
-        private val input: Pipe<T>,
-        private val output: Pipe<U>,
+        private val input1: Pipe<T>,
+        private val output1: Pipe<U>,
         private val actions: suspend (Pipe<T>.Consumer, Pipe<U>.Producer) -> Unit
-    ) : Node(name, listOf(input), listOf(output)) {
+    ) : Node(name, listOf(input1), listOf(output1)) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
 
-            val costumer = input.Consumer(coroutineScope)
-                .also {
-                        println("$name read $it")
-                      }
+            val costumer = input1.Consumer(coroutineScope)
+            costumer.onListenerUI { c, v ->
+                handlePipeContextChange(input1, c)
+                println("$name read $v with $c")
+            }
 
-          val producer = output.Producer()
-              .also {
-                        println("$name read $it")
-                    }
+            val producer = output1.Producer()
+            producer.onListenerUI { c, v ->
+                handlePipeContextChange(output1, c)
+                println("$name write $v with $c")
+            }
 
             job = coroutineScope.launch {
                 actions.invoke(costumer, producer)
@@ -90,17 +75,18 @@ sealed class Node(
 
     class Input1<T>(
         name: String,
-        private val input: Pipe<T>,
+        private val input1: Pipe<T>,
         private val actions: suspend (Pipe<T>.Consumer) -> Unit
-    ) : Node(name, listOf(input), emptyList()) {
+    ) : Node(name, listOf(input1), emptyList()) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
 
-            val costumer = input.Consumer(coroutineScope)
-            costumer.onListenerUI {
-                println("$name read $it")
+            val costumer = input1.Consumer(coroutineScope)
+            costumer.onListenerUI { c, v ->
+                handlePipeContextChange(input1, c)
+                println("$name read $v with $c")
             }
             job = coroutineScope.launch {
                 actions.invoke(costumer)
@@ -110,17 +96,18 @@ sealed class Node(
 
     class Output1<U>(
         name: String,
-        private val output: Pipe<U>,
+        private val output1: Pipe<U>,
         private val actions: suspend (Pipe<U>.Producer) -> Unit
-    ) : Node(name, emptyList(), listOf(output)) {
+    ) : Node(name, emptyList(), listOf(output1)) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
             isStart = true
 
-            val producer = output.Producer()
-            producer.onListenerUI {
-                println("$name write $it")
+            val producer = output1.Producer()
+            producer.onListenerUI { c, v ->
+                handlePipeContextChange(output1, c)
+                println("$name write $v with $c")
             }
 
             job = coroutineScope.launch {
