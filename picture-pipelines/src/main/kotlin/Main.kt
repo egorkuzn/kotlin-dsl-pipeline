@@ -58,7 +58,7 @@ fun main() {
     workflow.start()
 
     runBlocking {
-        delay(10.seconds)
+        delay(7.seconds)
         workflow.stop()
     }
 

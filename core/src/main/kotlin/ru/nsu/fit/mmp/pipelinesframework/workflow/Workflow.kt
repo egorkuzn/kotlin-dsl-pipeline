@@ -16,9 +16,16 @@ class Workflow(
 ) {
     private val coroutineScope = CoroutineScope(dispatcher)
 
-    private val contextHistory = mutableListOf(Context(mutableMapOf<Long, Pipe.Context<*>>().apply {}))
+    private val contextHistory = mutableListOf(
+        Context(
+            mutableMapOf<Long, List<Any?>>().apply {},
+            mutableMapOf<Long, Pipe.Context<*>>().apply {})
+    )
 
-    data class Context(val contextPipe: MutableMap<Long, Pipe.Context<*>>)
+    data class Context(
+        val contextNode: MutableMap<Long, List<Any?>>,
+        val contextPipe: MutableMap<Long, Pipe.Context<*>>
+    )
 
 
     /**
@@ -28,16 +35,16 @@ class Workflow(
     fun start() {
         nodes.forEach { node ->
             node.onContextListener {
-                handleUpdateContext(node, it)
+                handleUpdateContext(it)
             }
             node.start(coroutineScope)
         }
     }
 
-    private fun handleUpdateContext(node: Node, context: Node.Context) {
+    private fun handleUpdateContext(context: Node.Context) {
 
         val d = contextHistory.last().copy()
-        context.buffer.forEach {
+        context.pipesContext.forEach {
             if (d.contextPipe.containsKey(it.id)) {
                 if (d.contextPipe[it.id]?.state!! < it.state) {
                     d.contextPipe[it.id] = it
@@ -46,6 +53,7 @@ class Workflow(
                 d.contextPipe[it.id] = it
             }
         }
+        d.contextNode[context.id] = context.buffer
         contextHistory.add(d)
 
     }
@@ -56,8 +64,21 @@ class Workflow(
      */
     fun stop() {
         nodes.forEach { it.stop() }
-        println("_________________")
-        println(contextHistory)
+
+        for (context in contextHistory) {
+            println("_________________")
+            context.contextNode.forEach {
+                println("node ${it.key} have ${it.value}")
+            }
+            println("()()()()()()()()()()()()")
+
+            context.contextPipe.forEach {
+                println("pipe ${it.key} have ${it.value}")
+            }
+            println("_________________")
+        }
+
+
     }
 
 }

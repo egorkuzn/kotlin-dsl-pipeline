@@ -15,14 +15,16 @@ import java.util.*
  * @see Pipe
  */
 sealed class Node(
+    private val id: Long = Random().nextLong(),
     val name: String,
     val input: List<Pipe<*>>,
     val output: List<Pipe<*>>,
 ) {
-    private val id = Random().nextLong()
     private val current = mutableMapOf<Pipe<*>, Pipe.Context<*>>()
     private val contextListeners = mutableListOf<(Context) -> Unit>()
-    private val context get() = Context(id, current.map { it.value })
+    private val context get() = Context(id, ArrayList(buffer), current.map { it.value })
+
+    val buffer = mutableListOf<Any?>()
 
     internal var isStart = false
     internal var job: Job? = null
@@ -42,14 +44,14 @@ sealed class Node(
      * Класс, представляющий контекст узла.
      * Управляет слушателями и реагирует на изменения в контексте связанных каналов.
      */
-    data class Context(val id: Long, val buffer: List<Pipe.Context<*>>)
+    data class Context(val id: Long, val buffer: List<Any?>, val pipesContext: List<Pipe.Context<*>>)
 
     class Input1Output1<T, U>(
         name: String,
         private val input1: Pipe<T>,
         private val output1: Pipe<U>,
         private val actions: suspend (Pipe<T>.Consumer, Pipe<U>.Producer) -> Unit
-    ) : Node(name, listOf(input1), listOf(output1)) {
+    ) : Node(name = name, input = listOf(input1), output = listOf(output1)) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
@@ -57,12 +59,14 @@ sealed class Node(
 
             val costumer = input1.Consumer(coroutineScope)
             costumer.onListenerUI { c, v ->
+                buffer.add(v)
                 handlePipeContextChange(input1, c)
                 println("$name read $v with $c")
             }
 
             val producer = output1.Producer()
             producer.onListenerUI { c, v ->
+                buffer.remove(v)
                 handlePipeContextChange(output1, c)
                 println("$name write $v with $c")
             }
@@ -77,7 +81,7 @@ sealed class Node(
         name: String,
         private val input1: Pipe<T>,
         private val actions: suspend (Pipe<T>.Consumer) -> Unit
-    ) : Node(name, listOf(input1), emptyList()) {
+    ) : Node(name = name, input = listOf(input1), output =  emptyList()) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
@@ -85,6 +89,7 @@ sealed class Node(
 
             val costumer = input1.Consumer(coroutineScope)
             costumer.onListenerUI { c, v ->
+                buffer.add(v)
                 handlePipeContextChange(input1, c)
                 println("$name read $v with $c")
             }
@@ -98,7 +103,7 @@ sealed class Node(
         name: String,
         private val output1: Pipe<U>,
         private val actions: suspend (Pipe<U>.Producer) -> Unit
-    ) : Node(name, emptyList(), listOf(output1)) {
+    ) : Node(name = name, input =  emptyList(), output = listOf(output1)) {
 
         override fun start(coroutineScope: CoroutineScope) {
             assert(isStart)
@@ -106,6 +111,7 @@ sealed class Node(
 
             val producer = output1.Producer()
             producer.onListenerUI { c, v ->
+                buffer.remove(v)
                 handlePipeContextChange(output1, c)
                 println("$name write $v with $c")
             }

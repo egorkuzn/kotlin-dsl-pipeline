@@ -19,7 +19,7 @@ class Pipe<T> {
 
     private val lock = Any()
 
-    private val context get() = Context(id, stateBuffer, buffer)
+    private val context get() = Context(id, stateBuffer, ArrayList(buffer))
 
     data class Context<T>(val id: Long, val state: Long, val buffer: List<T>)
 
