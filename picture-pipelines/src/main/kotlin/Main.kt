@@ -7,6 +7,7 @@ import ru.nsu.fit.mmp.pipelinesframework.workflow.SharedWorkflow
 import ru.nsu.fit.mmp.pipelinesframework.workflow.Workflow
 import java.awt.image.BufferedImage
 import java.io.File
+import java.util.UUID
 import javax.imageio.ImageIO
 import kotlin.time.Duration.Companion.seconds
 
@@ -23,8 +24,9 @@ fun main() {
         val partImage = Pipe<BufferedImage>()
         val partImageChangeable = Pipe<BufferedImage>()
 
-        val inputDir = File("") //добавить путь до папки
-        val outputDir = File("") //добавить путь до папки
+        val inputDir = File(this::class.java.getResource("/in")?.path!!)
+        // SEE IN BUILD RESOURCES
+        val outputDirPath = this::class.java.getResource("/out")?.path!!
 
         val imageFiles = inputDir.listFiles { file ->
             file.extension in listOf("jpg", "jpeg", "png")
@@ -108,7 +110,8 @@ fun main() {
             g2d.drawImage(img2, img1.width, 0, null)
 
             g2d.dispose()
-            ImageIO.write(mergedImage, "jpg", outputDir)
+            val file = File("$outputDirPath/${UUID.randomUUID()}.jpg")
+            ImageIO.write(mergedImage, "jpg", file)
         }
     }
 
