@@ -22,24 +22,34 @@ class BufferChannelImpl<E> : BufferChannel<E> {
     private val listeners = mutableListOf<(List<E>) -> Unit>()
 
     private val buffer = mutableListOf<E>()
+    private var code = 0L
     private val lock = Any()
 
-    override fun bufferElements(): List<E> {
-        synchronized(lock) {
-            return buffer.toList()
-        }
-    }
+    private val context get() = BufferChannel.Context(code, buffer.toList())
 
-    override fun onListenerBuffer(listener: (List<E>) -> Unit) {
-        synchronized(listeners) {
-            listeners.add(listener)
-        }
-    }
+
+
+//    override fun bufferElements(): List<E> {
+//        synchronized(lock) {
+//            return buffer.toList()
+//        }
+//    }
+//
+//    override fun onListenerBuffer(listener: (List<E>) -> Unit) {
+//        synchronized(listeners) {
+//            listeners.add(listener)
+//        }
+//    }
 
     private fun notifyListeners() {
         synchronized(listeners) {
+            code++;
             listeners.forEach { it(buffer) }
         }
+    }
+
+    override fun context(): BufferChannel.Context<E> {
+        return context
     }
 
     @DelicateCoroutinesApi

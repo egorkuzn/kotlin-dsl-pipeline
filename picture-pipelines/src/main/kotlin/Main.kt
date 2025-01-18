@@ -4,7 +4,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
 import ru.nsu.fit.mmp.pipelinesframework.workflow.SharedWorkflow
-import ru.nsu.fit.mmp.pipelinesframework.workflow.Workflow
+import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.Workflow
+import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.node
 import kotlin.time.Duration.Companion.seconds
 
 fun line() = println("-".repeat(30))
@@ -21,8 +22,8 @@ fun main() {
 
         node(
             name = "Выведи символ 'a' n раз",
-            inputs = numbers,
-            outputs = symbols
+            input = numbers,
+            output = symbols
         ) { consumer, producer ->
             consumer.onListener { producer.commit("a".repeat(it)) }
             println("www")
@@ -58,7 +59,7 @@ fun main() {
     workflow.start()
 
     runBlocking {
-        delay(10.seconds)
+        delay(7.seconds)
         workflow.stop()
     }
 

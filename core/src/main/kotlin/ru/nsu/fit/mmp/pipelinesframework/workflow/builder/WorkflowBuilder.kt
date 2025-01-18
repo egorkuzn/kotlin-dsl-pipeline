@@ -1,72 +1,21 @@
-package ru.nsu.fit.mmp.pipelinesframework.workflow
+package ru.nsu.fit.mmp.pipelinesframework.workflow.builder
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import ru.nsu.fit.mmp.pipelinesframework.Node
+import ru.nsu.fit.mmp.pipelinesframework.node.*
 import ru.nsu.fit.mmp.pipelinesframework.pipe.Pipe
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.OneToManyWorkflowBuilder
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.ThreeToManyWorkflowBuilder
-import ru.nsu.fit.mmp.pipelinesframework.workflow.builder.TwoToManyWorkflowBuilder
+import ru.nsu.fit.mmp.pipelinesframework.workflow.SharedWorkflow
+import ru.nsu.fit.mmp.pipelinesframework.workflow.Workflow
 
 /**
  * Класс для построения DSL конвейерной обработки
  */
-class WorkflowBuilder: OneToManyWorkflowBuilder,
-    TwoToManyWorkflowBuilder,
-    ThreeToManyWorkflowBuilder {
-    private val nodes = mutableListOf<Node>()
-
-    /**
-     * Конструкция DSL, создающая узел обработки [Node]
-     *
-     * @param name Название узла
-     * @param inputs Входной канал [Pipe] с данными типа T
-     * @param outputs Выходной канал [Pipe] с данными типа T
-     * @param action Лямбда-функция, описывающая логику обработки данных узлом
-     */
-    override fun <T> node(
-        name: String,
-        inputs: Pipe<T>,
-        outputs: Pipe<T>,
-        action: suspend (Pipe<T>.Consumer, Pipe<T>.Producer) -> Unit
-    ) {
-        nodes.add(Node(name, listOf(inputs), listOf(outputs)) {
-            action.invoke(inputs.Consumer(it), outputs.Producer())
-        })
-    }
-
-    /**
-     * Конструкция DSL, создающая узел обработки [Node]
-     *
-     * @param name Название узла
-     * @param inputs Входные каналы [Pipe] с данными типа T и Q
-     * @param outputs Выходные каналы [Pipe] с данными типа T и Q
-     * @param action Лямбда-функция, описывающая логику обработки данных узлом
-     */
-    override fun <T, Q> node(
-        name: String,
-        inputs: Pair<Pipe<T>, Pipe<Q>>,
-        outputs: Pair<Pipe<T>, Pipe<Q>>,
-        action: suspend (
-            consumerT: Pipe<T>.Consumer,
-            consumerQ: Pipe<Q>.Consumer,
-            producerT: Pipe<T>.Producer,
-            producerQ: Pipe<Q>.Producer,
-        ) -> Unit
-    ) {
-        nodes.add(Node(
-            name,
-            inputs.toList(),
-            outputs.toList()
-        ) {
-            action.invoke(
-                inputs.first.Consumer(it),
-                inputs.second.Consumer(it),
-                outputs.first.Producer(),
-                outputs.second.Producer()
-            )
-        })
-    }
+class WorkflowBuilder
+//    OneToManyWorkflowBuilder,
+//    TwoToManyWorkflowBuilder,
+//    ThreeToManyWorkflowBuilder
+{
+    internal val nodes = mutableListOf<Node>()
 
     /**
      * Конструкция DSL, создающая узел обработки [Node]
@@ -76,7 +25,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
      * @param outputs Выходные каналы [Pipe] с данными типа T, Q и M
      * @param action Лямбда-функция, описывающая логику обработки данных узлом
      */
-    override fun <T, Q, M> node(
+    fun <T, Q, M> node(
         name: String,
         inputs: Triple<Pipe<T>, Pipe<Q>, Pipe<M>>,
         outputs: Triple<Pipe<T>, Pipe<Q>, Pipe<M>>,
@@ -89,20 +38,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
             producerM: Pipe<M>.Producer
         ) -> Unit
     ) {
-        nodes.add(Node(
-            name,
-            inputs.toList(),
-            outputs.toList()
-        ) {
-            action.invoke(
-                inputs.first.Consumer(it),
-                inputs.second.Consumer(it),
-                inputs.third.Consumer(it),
-                outputs.first.Producer(),
-                outputs.second.Producer(),
-                outputs.third.Producer()
-            )
-        })
+        nodes.add(Node.Input3Output3(name, inputs, outputs, action))
     }
 
     /**
@@ -117,9 +53,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
         output: Pipe<T>,
         action: suspend (Pipe<T>.Producer) -> Unit,
     ) {
-        nodes.add(Node(name, emptyList(), listOf(output)) {
-            action.invoke(output.Producer())
-        })
+        nodes.add(Output1(name, output, action))
     }
 
     /**
@@ -134,9 +68,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
         input: Pipe<T>,
         action: suspend (Pipe<T>.Consumer) -> Unit,
     ) {
-        nodes.add(Node(name, listOf(input), emptyList()) {
-            action.invoke(input.Consumer(it))
-        })
+        nodes.add(Input1(name, input, action))
     }
 
     /**
@@ -155,8 +87,21 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
      * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для управления асинхронными задачами
      * @return Новый экземпляр конвейера [Workflow]
      */
-    fun build(dispatcher: CoroutineDispatcher): Workflow {
-        return Workflow(nodes, dispatcher)
+    fun build(
+        countStackContext: Int,
+        enableSecurityDeadLock: Boolean,
+        enabledWarringCyclePipe: Boolean,
+        updateContext: (Workflow.Context)->Unit,
+        dispatcher: CoroutineDispatcher
+    ): Workflow {
+        return Workflow(
+            nodes = nodes,
+            updateContext= updateContext,
+            enableSecurityDeadLock = enableSecurityDeadLock,
+            enabledWarringCyclePipe = enabledWarringCyclePipe,
+            countStackContext = countStackContext,
+            dispatcher = dispatcher
+        )
     }
 
     /**
@@ -165,7 +110,7 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
      * @return Новый экземпляр общего конвейера [SharedWorkflow]
      */
     fun buildSharedWorkflow(): SharedWorkflow {
-        return SharedWorkflow(nodes)
+        return SharedWorkflow(nodes = nodes)
     }
 
 }
@@ -173,12 +118,21 @@ class WorkflowBuilder: OneToManyWorkflowBuilder,
 /**
  * Открывающая DSL конструкция [WorkflowBuilder]
  *
+ * @param countStackContext Количество контекстов, хранящиеся в стеке
+ * @param enableSecurityDeadLock Включение механизма обнаружения DeadLock
+ * @param enabledWarringCyclePipe Включение механизма обнаружения циклов
  * @param dispatcher Диспетчер корутин [CoroutineDispatcher] для управления асинхронными задачами (по умолчанию [Dispatchers.Default])
  * @param init Контент конвейера
  * @return Новый экземпляр конвейера [Workflow]
  */
 fun Workflow(
-    dispatcher: CoroutineDispatcher = Dispatchers.Default, init: WorkflowBuilder.() -> Unit,
+    countStackContext: Int = 100,
+    enableSecurityDeadLock: Boolean = false,
+    enabledWarringCyclePipe: Boolean = false,
+    updateContext: (Workflow.Context)->Unit = {},
+    dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    init: WorkflowBuilder.() -> Unit,
 ): Workflow {
-    return WorkflowBuilder().apply(init).build(dispatcher)
+    return WorkflowBuilder().apply(init)
+        .build(countStackContext, enableSecurityDeadLock, enabledWarringCyclePipe,updateContext,  dispatcher)
 }
