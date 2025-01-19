@@ -3,6 +3,7 @@ package ru.nsu.fit.mmp.pipelinesframework.pipe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
+import java.util.*
 
 /**
  * Класс, представляющий односторонний канал для асинхронной передачи данных
@@ -11,42 +12,23 @@ import ru.nsu.fit.mmp.pipelinesframework.channel.BufferChannel
  */
 class Pipe<T> {
     private val channel = BufferChannel.of<T>();
-    val context = Context()
+    private val id = Random().nextLong()
+
+    private val buffer = mutableListOf<T>()
+    private var stateBuffer = 0L
+
+    private val lock = Any()
+
+    private val context get() = Context(id, stateBuffer, buffer.map { it.toString() })
 
     /**
-     * Класс, предоставляющий контекст Pipe
-     * Используется для управления слушателями и обработки событий, связанных с буфером
+     * Класс, представляющий контекст канала [Pipe]
+     *
+     * @param id Индефикатор канала
+     * @param state Номер состояния
+     * @param buffer Список элементов из буффера
      */
-    inner class Context {
-        private val listeners = mutableListOf<(Context) -> Unit>()
-
-        init {
-            channel.onListenerBuffer {
-                handleBufferChange(it)
-            }
-        }
-
-        /**
-         * Регистрация нового слушателя событий контекста
-         *
-         * @param action Действие, которое выполняется при изменении контекста
-         */
-        fun onListener(action: (context: Context) -> Unit) {
-            listeners.add(action)
-        }
-
-        /**
-         * Обработчик изменений в буфере и уведомляет всех слушателей
-         *
-         * @param buffer Текущее состояние буфера
-         */
-        private fun handleBufferChange(buffer: List<T>) {
-            //TODO buffer нужен для логирования
-            listeners.forEach {
-                it.invoke(this)
-            }
-        }
-    }
+    data class Context(val id: Long, val state: Long, val buffer: List<String>)
 
     /**
      * Класс, представляющий потребителя данных [T] из канала [Pipe]
@@ -55,6 +37,31 @@ class Pipe<T> {
      */
     inner class Consumer(private val coroutineScope: CoroutineScope) {
         private val receiveChannel = channel
+        private val contextListeners = mutableListOf<(Context, T) -> Unit>()
+
+        /**
+         * Добавление обработчиков изменения буффера
+         *
+         * @param action Обработчик
+         */
+        fun onContextListener(action: (Context, T) -> Unit) {
+            contextListeners.add(action)
+        }
+
+        /**
+         * Обработчик изменений состояния буффера
+         *
+         * @param value Новое значение
+         */
+        private fun handleBufferChange(value: T) {
+            contextListeners.forEach {
+                synchronized(lock) {
+                    buffer.remove(value)
+                    stateBuffer++
+                    it.invoke(context, value)
+                }
+            }
+        }
 
         /**
          * Получение следующего элемента из канала [Pipe]
@@ -63,7 +70,7 @@ class Pipe<T> {
          * @throws Exception В случае ошибки получения
          */
         suspend fun receive(): T {
-            return channel.receive()
+            return channel.receive().also { handleBufferChange(it) }
         }
 
         /**
@@ -74,7 +81,7 @@ class Pipe<T> {
         fun onListener(action: suspend (T) -> Unit) {
             coroutineScope.launch {
                 for (p in channel) {
-                    action(p)
+                    action(p).also { handleBufferChange(p) }
                 }
             }
         }
@@ -95,6 +102,31 @@ class Pipe<T> {
      */
     inner class Producer {
         private val sendChannel = channel
+        private val contextListeners = mutableListOf<(Context, T) -> Unit>()
+
+        /**
+         * Добавление обработчиков изменения буффера
+         *
+         * @param action Обработчик
+         */
+        fun onContextListener(action: (Context, T) -> Unit) {
+            contextListeners.add(action)
+        }
+
+        /**
+         * Обработчик изменений состояния буффера
+         *
+         * @param value Новое значение
+         */
+        private fun handleBufferChange(value: T) {
+            contextListeners.forEach {
+                synchronized(lock) {
+                    buffer.add(value)
+                    stateBuffer++
+                    it.invoke(context, value)
+                }
+            }
+        }
 
         /**
          * Отправка элемента в канал [Pipe]
@@ -104,7 +136,7 @@ class Pipe<T> {
          */
         suspend fun commit(value: T) {
             //TODO Обработка ошибки отправки
-            channel.send(value)
+            channel.send(value).also { handleBufferChange(value) }
         }
 
         /**
