@@ -38,16 +38,14 @@ class DualPipe<T, U>(
          *
          * @param action Действие, которое выполняется для каждой пары данных (T, U).
          */
+        @OptIn(DelicateCoroutinesApi::class)
         fun onListener(action: (T, U) -> Unit) {
             coroutineScope.launch {
-                while (true) {
-                    val valueT = channelT.tryReceive().getOrNull()
-                    val valueU = channelU.tryReceive().getOrNull()
-                    if (valueT != null && valueU != null) {
-                        action(valueT, valueU)
-                    } else {
-                        break
-                    }
+                while (!channelT.isClosedForReceive && !channelU.isClosedForReceive) {
+                    val c1 = async { channelT.receive() }
+                    val c2 = async { channelU.receive() }
+
+                    action.invoke(c1.await(), c2.await())
                 }
             }
         }

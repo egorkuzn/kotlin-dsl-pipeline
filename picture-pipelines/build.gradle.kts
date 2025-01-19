@@ -14,6 +14,7 @@ repositories {
 dependencies {
     implementation(project(":core"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0")
+    implementation("com.github.simoska4.editimage:edit-image:1.1")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("ch.qos.logback:logback-classic:1.5.11")
     implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
