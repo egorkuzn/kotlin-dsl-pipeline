@@ -24,3 +24,24 @@ class Input1<T>(
         }
     }
 }
+
+/**
+ * Узел 2-0
+ */
+class Input2<T1, T2>(
+    name: String,
+    private val input1: Pair<Pipe<T1>, Pipe<T2>>,
+    private val actions: suspend (Pipe<T1>.Consumer, Pipe<T2>.Consumer) -> Unit
+) : Node(name = name, input = input1.toList(), output = emptyList()) {
+
+    override fun start(coroutineScope: CoroutineScope) {
+        assert(isStart)
+        isStart = true
+
+        job = coroutineScope.launch {
+            actions.invoke(
+                consumer(input1.first, coroutineScope), consumer(input1.second, coroutineScope)
+            )
+        }
+    }
+}
